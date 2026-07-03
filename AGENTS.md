@@ -1,16 +1,14 @@
 # Stack
 
-- typescript
-- prisma
-- hono
-- grammy
-- orval
-- pino
-- dotenv
-- better-sqlite3
-- esbuild
-- axios
-- SQLite
+- Typescript
+- Prisma
+- Nestjs
+- Pino
+- Dotenv
+- Jest
+- PostgreSQL
+- Qdrant
+- Docker
 
 ## Functions
 
