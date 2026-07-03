@@ -1,0 +1,715 @@
+# Stack
+
+- typescript
+- prisma
+- hono
+- grammy
+- orval
+- pino
+- dotenv
+- better-sqlite3
+- esbuild
+- axios
+- SQLite
+
+## Functions
+
+always write function declarations instead of
+
+### **Example**
+
+```typescript
+/**
+ * Create a free trial invoice for the user.
+ * @param userId - The user ID.
+ * @returns {Promise<Invoice>} - The created invoice.
+ */
+export async function createTrialInvoice(userId: string) {
+  return db.invoice.create({
+    data: {
+      userId,
+    },
+  });
+}
+```
+
+### **Do not**
+
+```typescript
+const createTrialInvoice = async (userId: string) => {
+  return db.invoice.create({
+    data: {
+      userId,
+    },
+  });
+};
+```
+
+## Naming Conventions
+
+ALways use camelCase for naming modules, functions, variables, etc.
+
+### **Example**
+
+```typescript
+const userName = "JohnDoe";
+```
+
+### **Do not**
+
+```typescript
+const USER_NAME = "John Doe";
+```
+
+## JsDocs
+
+On the top of each function, write a JsDoc comment that describes the function.
+
+### **Example**
+
+```typescript
+/**
+ * Create a free trial invoice for the user.
+ * @param userId - The user ID.
+ * @returns {Promise<Invoice>} - The created invoice.
+ */
+export async function createTrialInvoice(userId: string) {
+  return db.invoice.create({
+    data: {
+      userId,
+      planId: plan.id,
+      amountUsdCents: plan.priceUsdCents,
+      fiatCurrency: "USD",
+      planNameSnapshot: plan.name,
+      durationDaysSnapshot: plan.durationDays,
+      totalGBSnapshot: plan.totalGB,
+      maxDevicesSnapshot: plan.maxDevices,
+      status: InvoiceStatus.PENDING,
+    },
+  });
+}
+```
+
+### **Do not**
+
+```typescript
+function createTrialInvoice(userId: string) {
+  return db.invoice.create({
+    data: {
+      userId,
+    },
+  });
+}
+```
+
+# SOLID Principles for AI Code Contributions
+
+AI must always follow the **SOLID principles** when writing, refactoring, or extending code.
+
+The goal is to keep the codebase easy to understand, easy to change, easy to test, and safe to
+extend without breaking existing behavior.
+
+---
+
+## Core Rule
+
+Do not place multiple responsibilities inside one function, file, class, module, service, or
+handler.
+
+AI must separate responsibilities into clear modules such as:
+
+```txt
+src/
+  db/
+    user.ts
+    plan.ts
+    invoice.ts
+  services/
+    trial.service.ts
+    payment.service.ts
+  handlers/
+    trial.handler.ts
+  constants/
+    plans.ts
+```
+
+Each file should have one clear purpose.
+
+---
+
+# 1. Single Responsibility Principle
+
+A module, function, or class must have only one reason to change.
+
+Each unit of code should do one job.
+
+## Do
+
+Separate database logic, business logic, validation, and handler logic.
+
+```typescript
+// src/db/plan.ts
+
+/**
+ * Get the free trial plan from the database.
+ * @returns The free trial plan.
+ */
+export const getFreeTrialPlan = async () => {
+  return db.plan.findUnique({
+    where: {
+      name: FREE_TRIAL_PLAN_NAME,
+    },
+  });
+};
+```
+
+```typescript
+// src/db/invoice.ts
+
+/**
+ * Create an invoice for a specific user and plan.
+ * @param userId - The user ID.
+ * @param planId - The plan ID.
+ * @returns The created invoice.
+ */
+export const createInvoice = async (userId: string, planId: string) => {
+  return db.invoice.create({
+    data: {
+      userId,
+      planId,
+      status: "PENDING",
+    },
+  });
+};
+```
+
+```typescript
+// src/services/trial.service.ts
+
+/**
+ * Create a free trial invoice for the user.
+ * @param userId - The user ID.
+ * @returns The created trial invoice.
+ */
+export const createTrialInvoice = async (userId: string) => {
+  const plan = await getFreeTrialPlan();
+
+  if (!plan) {
+    throw new Error("Free trial plan was not found.");
+  }
+
+  return createInvoice(userId, plan.id);
+};
+```
+
+## Do Not
+
+Do not mix plan lookup, invoice creation, and business rules in one function.
+
+```typescript
+const createTrialInvoice = async (userId: string) => {
+  const plan = await db.plan.findUnique({
+    where: {
+      name: FREE_TRIAL_PLAN_NAME,
+    },
+  });
+
+  if (!plan) {
+    throw new Error("Free trial plan was not found.");
+  }
+
+  return db.invoice.create({
+    data: {
+      userId,
+      planId: plan.id,
+      status: "PENDING",
+    },
+  });
+};
+```
+
+---
+
+# 2. Open/Closed Principle
+
+Code should be open for extension but closed for modification.
+
+AI should add new behavior by creating new modules, strategies, handlers, or services instead of
+editing large existing functions with many conditions.
+
+## Do
+
+Use separate handlers or strategies for each payment method.
+
+```typescript
+// src/payments/payment-provider.ts
+
+export interface PaymentProvider {
+  createPaymentLink(invoiceId: string): Promise<string>;
+}
+```
+
+```typescript
+// src/payments/crypto-payment.provider.ts
+
+export class CryptoPaymentProvider implements PaymentProvider {
+  async createPaymentLink(invoiceId: string): Promise<string> {
+    return createCryptoPaymentLink(invoiceId);
+  }
+}
+```
+
+```typescript
+// src/payments/telegram-stars-payment.provider.ts
+
+export class TelegramStarsPaymentProvider implements PaymentProvider {
+  async createPaymentLink(invoiceId: string): Promise<string> {
+    return createTelegramStarsPaymentLink(invoiceId);
+  }
+}
+```
+
+## Do Not
+
+Do not keep adding conditions to one large function.
+
+```typescript
+const createPaymentLink = async (invoiceId: string, method: string) => {
+  if (method === "crypto") {
+    return createCryptoPaymentLink(invoiceId);
+  }
+
+  if (method === "telegram-stars") {
+    return createTelegramStarsPaymentLink(invoiceId);
+  }
+
+  if (method === "card") {
+    return createCardPaymentLink(invoiceId);
+  }
+
+  throw new Error("Unsupported payment method.");
+};
+```
+
+---
+
+# 3. Liskov Substitution Principle
+
+A derived class or implementation must be usable anywhere its base interface is expected.
+
+AI must make implementations predictable and compatible with the interface they implement.
+
+## Do
+
+All payment providers must return the same type and follow the same behavior contract.
+
+```typescript
+export interface PaymentProvider {
+  createPaymentLink(invoiceId: string): Promise<string>;
+}
+```
+
+```typescript
+export class CryptoPaymentProvider implements PaymentProvider {
+  async createPaymentLink(invoiceId: string): Promise<string> {
+    return "https://payment.example.com/crypto/invoice-123";
+  }
+}
+```
+
+```typescript
+export class ManualPaymentProvider implements PaymentProvider {
+  async createPaymentLink(invoiceId: string): Promise<string> {
+    return `Manual payment required for invoice: ${invoiceId}`;
+  }
+}
+```
+
+## Do Not
+
+Do not create implementations that break the expected return type or behavior.
+
+```typescript
+export class BrokenPaymentProvider implements PaymentProvider {
+  async createPaymentLink(invoiceId: string): Promise<string> {
+    throw new Error("This provider does not support payment links.");
+  }
+}
+```
+
+If a provider cannot create a payment link, it should not implement `PaymentProvider`.
+
+---
+
+# 4. Interface Segregation Principle
+
+Do not force modules to depend on methods they do not use.
+
+AI must create small, focused interfaces instead of large generic interfaces.
+
+## Do
+
+Split interfaces by responsibility.
+
+```typescript
+export interface InvoiceCreator {
+  createInvoice(userId: string, planId: string): Promise<Invoice>;
+}
+
+export interface InvoiceReader {
+  getInvoiceById(invoiceId: string): Promise<Invoice | null>;
+}
+
+export interface InvoiceUpdater {
+  markInvoiceAsPaid(invoiceId: string): Promise<Invoice>;
+}
+```
+
+## Do Not
+
+Do not create large interfaces that force every implementation to support unrelated behavior.
+
+```typescript
+export interface InvoiceRepository {
+  createInvoice(userId: string, planId: string): Promise<Invoice>;
+  getInvoiceById(invoiceId: string): Promise<Invoice | null>;
+  markInvoiceAsPaid(invoiceId: string): Promise<Invoice>;
+  deleteInvoice(invoiceId: string): Promise<void>;
+  refundInvoice(invoiceId: string): Promise<void>;
+  sendInvoiceEmail(invoiceId: string): Promise<void>;
+}
+```
+
+---
+
+# 5. Dependency Inversion Principle
+
+High-level business logic should not depend directly on low-level implementations.
+
+AI should depend on abstractions, interfaces, and injected dependencies where practical.
+
+## Do
+
+Let services depend on a repository or provider interface.
+
+```typescript
+// src/services/trial.service.ts
+
+type TrialServiceDependencies = {
+  getFreeTrialPlan: () => Promise<Plan | null>;
+  createInvoice: (userId: string, planId: string) => Promise<Invoice>;
+};
+
+/**
+ * Create a free trial invoice.
+ * @param deps - Required dependencies.
+ * @param userId - The user ID.
+ * @returns The created invoice.
+ */
+export const createTrialInvoice = async (deps: TrialServiceDependencies, userId: string) => {
+  const plan = await deps.getFreeTrialPlan();
+
+  if (!plan) {
+    throw new Error("Free trial plan was not found.");
+  }
+
+  return deps.createInvoice(userId, plan.id);
+};
+```
+
+## Do Not
+
+Do not tightly couple high-level business logic to Prisma, HTTP clients, Telegram APIs, or payment
+SDKs when the logic can depend on a smaller abstraction.
+
+```typescript
+const createTrialInvoice = async (userId: string) => {
+  const plan = await db.plan.findUnique({
+    where: {
+      name: FREE_TRIAL_PLAN_NAME,
+    },
+  });
+
+  return db.invoice.create({
+    data: {
+      userId,
+      planId: plan.id,
+    },
+  });
+};
+```
+
+---
+
+# AI Contribution Rules
+
+When AI writes code, it must follow these rules:
+
+## 1. Keep Files Focused
+
+Each file must have one clear responsibility.
+
+Good examples:
+
+```txt
+src/db/user.ts
+src/db/plan.ts
+src/db/invoice.ts
+src/services/trial.service.ts
+src/services/subscription.service.ts
+src/handlers/start.handler.ts
+src/handlers/trial.handler.ts
+```
+
+Bad examples:
+
+```txt
+src/utils.ts
+src/helpers.ts
+src/bot.ts
+src/index.ts
+src/all-services.ts
+```
+
+Avoid putting unrelated logic into generic files.
+
+---
+
+## 2. Separate Business Logic from Framework Logic
+
+Telegram, HTTP, CLI, or cron handlers should only receive input, call services, and return output.
+
+## Do
+
+```typescript
+// src/handlers/trial.handler.ts
+
+export const handleFreeTrialCommand = async (ctx: BotContext) => {
+  const userId = ctx.user.id;
+
+  const subscriptionLink = await createFreeTrialSubscription(userId);
+
+  await ctx.reply(`Your free trial is ready:\n${subscriptionLink}`);
+};
+```
+
+```typescript
+// src/services/trial.service.ts
+
+export const createFreeTrialSubscription = async (userId: string) => {
+  const invoice = await createTrialInvoice(userId);
+  const subscription = await createSubscriptionFromInvoice(invoice.id);
+
+  return subscription.link;
+};
+```
+
+## Do Not
+
+```typescript
+bot.command("trial", async (ctx) => {
+  const plan = await db.plan.findUnique({
+    where: {
+      name: FREE_TRIAL_PLAN_NAME,
+    },
+  });
+
+  const invoice = await db.invoice.create({
+    data: {
+      userId: ctx.user.id,
+      planId: plan.id,
+    },
+  });
+
+  const subscription = await panel.createSubscription(invoice.id);
+
+  await ctx.reply(subscription.link);
+});
+```
+
+---
+
+## 3. Prefer Small Functions
+
+AI should write small functions with clear names.
+
+A function should usually:
+
+- Do one job
+- Have a clear name
+- Be easy to test
+- Avoid hidden side effects
+- Avoid deeply nested logic
+
+## Do
+
+```typescript
+const ensurePlanExists = (plan: Plan | null) => {
+  if (!plan) {
+    throw new Error("Plan was not found.");
+  }
+
+  return plan;
+};
+```
+
+## Do Not
+
+```typescript
+const process = async (data: any) => {
+  // validates user
+  // checks plan
+  // creates invoice
+  // creates subscription
+  // sends Telegram message
+  // logs analytics
+};
+```
+
+---
+
+## 4. Avoid God Services
+
+AI must not create one large service that controls the entire application.
+
+## Do
+
+```txt
+trial.service.ts
+invoice.service.ts
+subscription.service.ts
+payment.service.ts
+telegram-message.service.ts
+```
+
+## Do Not
+
+```txt
+bot.service.ts
+main.service.ts
+app.service.ts
+manager.service.ts
+```
+
+---
+
+## 5. Use Clear Names
+
+Names must describe the exact responsibility.
+
+## Do
+
+```typescript
+getFreeTrialPlan();
+createTrialInvoice();
+createSubscriptionFromInvoice();
+sendSubscriptionLinkMessage();
+markInvoiceAsPaid();
+```
+
+## Do Not
+
+```typescript
+handleData();
+processUser();
+doPayment();
+run();
+execute();
+manage();
+```
+
+---
+
+## 6. Keep Database Access in Database Modules
+
+AI must not scatter direct database queries across handlers and business logic.
+
+## Do
+
+```typescript
+// src/db/invoice.ts
+
+export const createInvoice = async (data: CreateInvoiceInput) => {
+  return db.invoice.create({ data });
+};
+```
+
+## Do Not
+
+```typescript
+// src/handlers/trial.handler.ts
+
+await db.invoice.create({
+  data: {
+    userId,
+    planId,
+  },
+});
+```
+
+---
+
+## 7. Add New Behavior Without Breaking Existing Code
+
+Before modifying an existing function, AI must check whether the change can be added as:
+
+- A new function
+- A new service
+- A new strategy
+- A new provider
+- A new handler
+- A new module
+
+Modify existing logic only when the existing behavior itself is wrong.
+
+---
+
+## 8. Write Testable Code
+
+AI should avoid code that is difficult to test.
+
+Good testable code receives dependencies as arguments or imports small focused modules.
+
+```typescript
+const canCreateFreeTrial = async (
+  userId: string,
+  getExistingTrialInvoice: (userId: string) => Promise<Invoice | null>
+) => {
+  const invoice = await getExistingTrialInvoice(userId);
+
+  return invoice === null;
+};
+```
+
+Avoid hardcoded dependencies when they make testing difficult.
+
+---
+
+## Review Checklist for AI
+
+Before finalizing code, AI must verify:
+
+- [ ] Does each file have one clear responsibility?
+- [ ] Does each function do one job?
+- [ ] Is database access separated from handlers?
+- [ ] Is business logic separated from framework logic?
+- [ ] Can new behavior be added without editing large existing functions?
+- [ ] Are interfaces small and focused?
+- [ ] Are dependencies easy to replace in tests?
+- [ ] Are names clear and specific?
+- [ ] Did the change avoid creating a god service?
+- [ ] Did the change avoid breaking existing behavior?
+
+---
+
+## Final Rule
+
+AI must prefer clean, modular, boring, predictable code over clever code.
+
+When unsure, AI should split responsibilities into smaller files and functions instead of creating
+large mixed-purpose logic.
+
+## Linting and Formatting
+
+always run `pnpm lint`, `pnpm format`, and `pnpm typecheck` at the end of each task and be sure that
+there are no errors.
