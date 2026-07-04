@@ -800,6 +800,10 @@ export default class AuthController {
 }
 ```
 
+## Swagger
+
+For each API, always use Swagger for documentation with detailed descriptions and examples.
+
 ## Linting and Formatting
 
 always run `pnpm lint`, `pnpm format`, and `pnpm typecheck` at the end of each task and be sure that
