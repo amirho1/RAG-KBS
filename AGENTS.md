@@ -677,6 +677,12 @@ AI should avoid code that is difficult to test.
 Good testable code receives dependencies as arguments or imports small focused modules.
 
 ```typescript
+/**
+ * Check if a user can create a free trial
+ * @param userId - The user ID
+ * @param getExistingTrialInvoice - A function to get the existing trial invoice
+ * @returns True if the user can create a free trial, false otherwise
+ */
 const canCreateFreeTrial = async (
   userId: string,
   getExistingTrialInvoice: (userId: string) => Promise<Invoice | null>
@@ -733,9 +739,65 @@ describe("createTrialInvoice", () => {
     const userId = "123";
     const invoice = await createTrialInvoice(userId);
     expect(invoice).toBeDefined();
-    d;
   });
 });
+```
+
+## Zod
+
+For validation, use Zod for each API always use zodValidator and use DTO style for validation.
+
+```typescript
+/**
+ * Create a new user schema
+ * @param data - The user data
+ * @returns The user schema
+ */
+export const createUserSchema = z
+  .object({
+    email: z.email(translate("invalidEmail")),
+    password: z
+      .string()
+      .min(PASSWORD_MIN, translate("minPass"))
+      .max(PASSWORD_MAX, translate("maxPass")),
+    passwordConfirm: z
+      .string()
+      .min(PASSWORD_MIN, errors.minPassword)
+      .max(PASSWORD_MAX, errors.maxPassword),
+    name: z
+      .string(translate("nameRequired"))
+      .min(NAME_MIN, translate("minName"))
+      .max(NAME_MAX, translate("maxName")),
+    lastname: z
+      .string(translate("lastnameRequired"))
+      .min(NAME_MIN, translate("minLastname"))
+      .max(NAME_MAX, translate("maxLastname")),
+    phoneNumber: z.string().refine(isIranMobilePhone, translate("invalidPhone")),
+  })
+  .refine((data) => data.password === data.passwordConfirm, {
+    error: translate("passConfIsDiff"),
+    path: ["passwordConfirm"],
+  });
+
+/**
+ * Create a new user DTO for validation
+ * @returns The user DTO
+ */
+export default class CreateUserDTO extends createZodDto(createUserSchema) {}
+
+/**
+ * Create a new user
+ * @param data - The user data
+ * @returns The created user
+ */
+@Controller("auth")
+export default class AuthController {
+  @UsePipes(ZodValidationPipe)
+  @Post("/sign-up")
+  create(@Body() data: CreateUserDTO) {
+    return this.userService.create(data);
+  }
+}
 ```
 
 ## Linting and Formatting
