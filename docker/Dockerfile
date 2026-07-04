@@ -30,7 +30,7 @@ FROM dependencies AS development
 
 COPY . .
 
-RUN pnpm prisma:generate
+RUN pnpm exec prisma generate
 
 CMD ["pnpm", "start:dev"]
 
@@ -38,7 +38,7 @@ FROM dependencies AS build
 
 COPY . .
 
-RUN pnpm prisma:generate && pnpm build
+RUN pnpm exec prisma generate && pnpm build
 
 FROM base AS production-dependencies
 
@@ -95,7 +95,7 @@ FROM dependencies AS migrator
 COPY . .
 COPY docker ./docker
 
-RUN chmod +x docker/*.sh && pnpm prisma:generate
+RUN chmod +x docker/*.sh && pnpm exec prisma generate
 
 ENTRYPOINT ["docker/wait-for-services.sh"]
 CMD ["pnpm", "prisma:migrate:deploy"]

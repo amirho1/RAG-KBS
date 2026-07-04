@@ -34,9 +34,18 @@ services:
       INGESTION_QUEUE_NAME: ${INGESTION_QUEUE_NAME:-ingestion}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       WAIT_FOR_HOSTS: postgres:5432,redis:6379,qdrant:6333,minio:9000
+      CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
+      CHOKIDAR_INTERVAL: ${CHOKIDAR_INTERVAL:-500}
+      WATCHPACK_POLLING: ${WATCHPACK_POLLING:-true}
+      TSC_WATCHFILE: ${TSC_WATCHFILE:-DynamicPriorityPolling}
+      TSC_WATCHDIRECTORY: ${TSC_WATCHDIRECTORY:-RecursiveDirectoryUsingDynamicPriorityPolling}
     volumes:
-      - .:/app
-      - node-modules:/app/node_modules
+      - type: bind
+        source: .
+        target: /app
+      - type: volume
+        source: node-modules
+        target: /app/node_modules
     ports:
       - "${PORT:-3000}:3000"
     depends_on:
@@ -92,9 +101,18 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       WAIT_FOR_HOSTS: postgres:5432,redis:6379,qdrant:6333,minio:9000
       WORKER_READY_FILE: /tmp/rag-kbs-worker.ready
+      CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
+      CHOKIDAR_INTERVAL: ${CHOKIDAR_INTERVAL:-500}
+      WATCHPACK_POLLING: ${WATCHPACK_POLLING:-true}
+      TSC_WATCHFILE: ${TSC_WATCHFILE:-DynamicPriorityPolling}
+      TSC_WATCHDIRECTORY: ${TSC_WATCHDIRECTORY:-RecursiveDirectoryUsingDynamicPriorityPolling}
     volumes:
-      - .:/app
-      - node-modules:/app/node_modules
+      - type: bind
+        source: .
+        target: /app
+      - type: volume
+        source: node-modules
+        target: /app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -130,8 +148,12 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://rag_kbs:rag_kbs_password@postgres:5432/rag_kbs}
       WAIT_FOR_HOSTS: postgres:5432
     volumes:
-      - .:/app
-      - node-modules:/app/node_modules
+      - type: bind
+        source: .
+        target: /app
+      - type: volume
+        source: node-modules
+        target: /app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -181,7 +203,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "wget -qO- http://127.0.0.1:6333/readyz >/dev/null 2>&1 || exit 1",
+          "bash -ec 'exec 3<>/dev/tcp/127.0.0.1/6333; printf \"GET /readyz HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n\" >&3; grep -q \"200 OK\" <&3'",
         ]
       interval: 10s
       timeout: 5s

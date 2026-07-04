@@ -53,9 +53,12 @@ This starts:
 - MinIO API on `http://localhost:9000`
 - MinIO console on `http://localhost:9001`
 
-The API container runs `pnpm start:dev`. The worker container runs `pnpm worker:dev`. The source
-tree is bind-mounted into both containers, and `/app/node_modules` is kept in a named Docker volume
-so host dependencies do not overwrite container dependencies.
+The API container runs `pnpm start:dev`. The worker container runs `pnpm worker:dev`. The whole
+project directory is bind-mounted into both containers at `/app`, polling-based file watching is
+enabled for reliable Docker Desktop hot reload, and `/app/node_modules` is kept in a named Docker
+volume so host dependencies do not overwrite container dependencies. Nest writes development build
+output to the bind-mounted `dist` directory so its watch compiler can remove and recreate output
+normally during reloads.
 
 ## Development Migrations
 
