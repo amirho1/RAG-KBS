@@ -70,7 +70,7 @@ COPY --from=build /app/prisma ./prisma
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml prisma.config.ts ./
 COPY docker ./docker
 
-RUN chmod +x docker/*.sh && chown -R node:node /app
+RUN mkdir -p /app/logs && chmod +x docker/*.sh && chown -R node:node /app
 
 USER node
 

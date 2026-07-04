@@ -6,6 +6,7 @@ networks:
 
 volumes:
   node-modules:
+  logs:
   postgres-data:
   redis-data:
   qdrant-data:

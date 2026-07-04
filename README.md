@@ -106,19 +106,23 @@ export class ExampleQueueService {
 
 Optional variables with defaults include `DEFAULT_TENANT_ID`, `REDIS_PASSWORD`, `REDIS_URL`,
 `QDRANT_COLLECTION`, `EMBEDDING_API_KEY`, `BULLMQ_QUEUE_PREFIX`, `LOG_LEVEL`, `LOG_FORMAT`,
-`REQUEST_LOGGING_ENABLED`, `REQUEST_BODY_LOGGING_ENABLED`, `S3_FORCE_PATH_STYLE`, and
-`WORKER_READY_FILE`.
+`LOG_DIR`, `LOG_ROTATION_ENABLED`, `LOG_RETENTION_DAYS`, `REQUEST_LOGGING_ENABLED`,
+`REQUEST_BODY_LOGGING_ENABLED`, `S3_FORCE_PATH_STYLE`, and `WORKER_READY_FILE`.
 
 ### Logging variables
 
 | Variable                       | Default | Description                               |
 | ------------------------------ | ------- | ----------------------------------------- |
 | `LOG_LEVEL`                    | `info`  | `fatal`, `error`, `warn`, `info`, `debug` |
-| `LOG_FORMAT`                   | `json`  | `json` or `pretty`                        |
+| `LOG_FORMAT`                   | `json`  | Structured file log format                |
+| `LOG_DIR`                      | `logs`  | Directory for application log files       |
+| `LOG_ROTATION_ENABLED`         | `true`  | Write date-based log files                |
+| `LOG_RETENTION_DAYS`           | `14`    | Delete rotated logs older than this       |
 | `REQUEST_LOGGING_ENABLED`      | `true`  | Emit one structured log per HTTP request  |
 | `REQUEST_BODY_LOGGING_ENABLED` | `false` | Log redacted request body summaries only  |
 
-Production should use `LOG_FORMAT=json`. Development examples use `pretty` for readability.
+Production should use `LOG_FORMAT=json`. File logs are written as JSON lines so they remain easy to
+ship to log processors.
 
 ### Development vs production
 
@@ -191,6 +195,19 @@ Every response returns `x-request-id`, and services can read the active ID throu
 Each request log includes `event`, `requestId`, `method`, `path`, `statusCode`, `durationMs`,
 `userAgent`, `ip`, `contentLength`, `serviceName`, and `environment`. Failed requests include a safe
 error summary. Full request bodies are not logged by default.
+
+All application logs are written inside `LOG_DIR`, which defaults to `logs`. With rotation enabled,
+the logger writes daily files such as:
+
+```txt
+logs/app-2026-07-04.log
+logs/error-2026-07-04.log
+```
+
+General logs are written to `app-YYYY-MM-DD.log`; error and fatal logs are written to
+`error-YYYY-MM-DD.log`. Both API request logs and worker/job logs use the same logger and the same
+redaction rules. Docker Compose mounts the shared `logs` volume at `/app/logs` for both API and
+worker containers, so logs survive container restarts and image rebuilds.
 
 ### Job logs
 
@@ -397,6 +414,8 @@ are running.
 - The API container **readiness** probe in Compose calls `GET /health/ready`.
 - The worker container health check still uses `WORKER_READY_FILE`, but the file is written only
   after programmatic readiness checks pass inside the worker process.
+- The API and worker containers mount the `logs` Docker volume at `/app/logs` for persistent
+  application, request, and BullMQ job logs.
 
 ### Example healthy response
 

@@ -60,6 +60,9 @@ function createLoggerConfig(
   return {
     level: "info",
     format: "json",
+    logDir: "logs",
+    rotationEnabled: true,
+    retentionDays: 14,
     requestLoggingEnabled: true,
     requestBodyLoggingEnabled,
     environment: "test",

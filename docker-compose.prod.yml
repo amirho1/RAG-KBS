@@ -47,9 +47,16 @@ services:
       INGESTION_CONCURRENCY: ${INGESTION_CONCURRENCY:-2}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_DIR: ${LOG_DIR:-logs}
+      LOG_ROTATION_ENABLED: ${LOG_ROTATION_ENABLED:-true}
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-14}
       REQUEST_LOGGING_ENABLED: ${REQUEST_LOGGING_ENABLED:-true}
       REQUEST_BODY_LOGGING_ENABLED: ${REQUEST_BODY_LOGGING_ENABLED:-false}
       WAIT_FOR_HOSTS: ${API_WAIT_FOR_HOSTS:-postgres:5432,redis:6379,qdrant:6333}
+    volumes:
+      - type: volume
+        source: logs
+        target: /app/logs
     ports:
       - "${PORT:-3000}:3000"
     depends_on:
@@ -102,10 +109,17 @@ services:
       INGESTION_CONCURRENCY: ${INGESTION_CONCURRENCY:-2}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_FORMAT: ${LOG_FORMAT:-json}
+      LOG_DIR: ${LOG_DIR:-logs}
+      LOG_ROTATION_ENABLED: ${LOG_ROTATION_ENABLED:-true}
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-14}
       REQUEST_LOGGING_ENABLED: ${REQUEST_LOGGING_ENABLED:-true}
       REQUEST_BODY_LOGGING_ENABLED: ${REQUEST_BODY_LOGGING_ENABLED:-false}
       WAIT_FOR_HOSTS: ${WORKER_WAIT_FOR_HOSTS:-postgres:5432,redis:6379,qdrant:6333}
       WORKER_READY_FILE: /tmp/rag-kbs-worker.ready
+    volumes:
+      - type: volume
+        source: logs
+        target: /app/logs
     depends_on:
       migrate:
         condition: service_completed_successfully

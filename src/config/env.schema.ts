@@ -62,6 +62,9 @@ export const envSchema = z
       .optional()
       .default("info"),
     LOG_FORMAT: logFormatSchema.optional().default("json"),
+    LOG_DIR: z.string().trim().min(1).optional().default("logs"),
+    LOG_ROTATION_ENABLED: createBooleanStringSchema(true),
+    LOG_RETENTION_DAYS: positiveIntSchema.optional().default(14),
     REQUEST_LOGGING_ENABLED: createBooleanStringSchema(true),
     REQUEST_BODY_LOGGING_ENABLED: createBooleanStringSchema(false),
     WORKER_READY_FILE: z

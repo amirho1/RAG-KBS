@@ -38,6 +38,9 @@ services:
       INGESTION_CONCURRENCY: ${INGESTION_CONCURRENCY:-2}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       LOG_FORMAT: ${LOG_FORMAT:-pretty}
+      LOG_DIR: ${LOG_DIR:-logs}
+      LOG_ROTATION_ENABLED: ${LOG_ROTATION_ENABLED:-true}
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-14}
       REQUEST_LOGGING_ENABLED: ${REQUEST_LOGGING_ENABLED:-true}
       REQUEST_BODY_LOGGING_ENABLED: ${REQUEST_BODY_LOGGING_ENABLED:-false}
       WAIT_FOR_HOSTS: postgres:5432,redis:6379,qdrant:6333,minio:9000
@@ -53,6 +56,9 @@ services:
       - type: volume
         source: node-modules
         target: /app/node_modules
+      - type: volume
+        source: logs
+        target: /app/logs
     ports:
       - "${PORT:-3000}:3000"
     depends_on:
@@ -113,6 +119,9 @@ services:
       INGESTION_CONCURRENCY: ${INGESTION_CONCURRENCY:-2}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       LOG_FORMAT: ${LOG_FORMAT:-pretty}
+      LOG_DIR: ${LOG_DIR:-logs}
+      LOG_ROTATION_ENABLED: ${LOG_ROTATION_ENABLED:-true}
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-14}
       REQUEST_LOGGING_ENABLED: ${REQUEST_LOGGING_ENABLED:-true}
       REQUEST_BODY_LOGGING_ENABLED: ${REQUEST_BODY_LOGGING_ENABLED:-false}
       WAIT_FOR_HOSTS: postgres:5432,redis:6379,qdrant:6333,minio:9000
@@ -129,6 +138,9 @@ services:
       - type: volume
         source: node-modules
         target: /app/node_modules
+      - type: volume
+        source: logs
+        target: /app/logs
     depends_on:
       postgres:
         condition: service_healthy

@@ -7,6 +7,7 @@ import {
   sanitizeError,
   sanitizeLogMessage,
 } from "./log-redaction.js";
+import { createDailyRotatingLogStream } from "./daily-rotating-log-stream.js";
 
 type StructuredLogLevel =
   "fatal" | "error" | "warn" | "info" | "debug" | "trace";
@@ -186,6 +187,11 @@ export class PinoLoggerService implements LoggerService {
 export function createPinoLogger(
   config: ConfigType<typeof loggerConfig>
 ): Logger {
+  const logStream = createDailyRotatingLogStream({
+    logDir: config.logDir,
+    rotationEnabled: config.rotationEnabled,
+    retentionDays: config.retentionDays,
+  });
   const options: LoggerOptions = {
     level: config.level,
     base: {
@@ -215,18 +221,7 @@ export function createPinoLogger(
     timestamp: pino.stdTimeFunctions.isoTime,
   };
 
-  if (config.format === "pretty") {
-    options.transport = {
-      target: "pino-pretty",
-      options: {
-        colorize: config.environment === "development",
-        singleLine: true,
-        translateTime: "SYS:standard",
-      },
-    };
-  }
-
-  return pino(options);
+  return pino(options, logStream);
 }
 
 /**
