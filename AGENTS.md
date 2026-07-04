@@ -1,4 +1,10 @@
-# Stack
+# RAG-KBS
+
+RAG-KBS is a framework for building knowledge bases using RAG.
+
+## Always read the [architecture](./docs/architecture.md) document before writing code.
+
+## Stack
 
 - Typescript
 - Prisma
@@ -9,6 +15,8 @@
 - PostgreSQL
 - Qdrant
 - Docker
+- BullMQ
+- LangChain
 
 ## Functions
 
