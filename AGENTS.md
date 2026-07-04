@@ -2,7 +2,11 @@
 
 RAG-KBS is a framework for building knowledge bases using RAG.
 
-## Always read the [architecture](./docs/architecture.md) document before writing code.
+---
+
+## Docs
+
+Always read the [documents](./docs) before writing code.
 
 ## Stack
 
