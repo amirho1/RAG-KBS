@@ -4,7 +4,22 @@ const nodeEnvSchema = z.enum(["development", "test", "production"]);
 
 const storageDriverSchema = z.enum(["local", "s3"]);
 
+const logFormatSchema = z.enum(["json", "pretty"]);
+
 const positiveIntSchema = z.coerce.number().int().positive();
+
+/**
+ * Create a boolean env schema from true/false strings.
+ * @param defaultValue - Default boolean value.
+ * @returns A boolean env schema.
+ */
+function createBooleanStringSchema(defaultValue: boolean) {
+  return z
+    .enum(["true", "false"])
+    .optional()
+    .default(defaultValue ? "true" : "false")
+    .transform((value) => value === "true");
+}
 
 /**
  * Master environment variable schema for RAG-KBS.
@@ -46,6 +61,9 @@ export const envSchema = z
       .enum(["fatal", "error", "warn", "info", "debug", "trace"])
       .optional()
       .default("info"),
+    LOG_FORMAT: logFormatSchema.optional().default("json"),
+    REQUEST_LOGGING_ENABLED: createBooleanStringSchema(true),
+    REQUEST_BODY_LOGGING_ENABLED: createBooleanStringSchema(false),
     WORKER_READY_FILE: z
       .string()
       .optional()

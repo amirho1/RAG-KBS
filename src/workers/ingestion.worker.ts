@@ -1,12 +1,12 @@
-import { INestApplicationContext, Logger } from "@nestjs/common";
+import { INestApplicationContext } from "@nestjs/common";
 import { ConfigType } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "../app.module.js";
+import { PinoLoggerService } from "../common/logger/pino-logger.service.js";
 import appConfig from "../config/app.config.js";
 import { HealthService } from "../modules/health/health.service.js";
 import { writeWorkerReadyFile } from "./worker-ready-file.js";
 
-const logger = new Logger("IngestionWorker");
 const readinessRetryDelayMs = 5_000;
 
 /**
@@ -14,16 +14,24 @@ const readinessRetryDelayMs = 5_000;
  */
 async function bootstrapIngestionWorker(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule);
+  const logger = app.get(PinoLoggerService);
   const { workerReadyFile } = app.get<ConfigType<typeof appConfig>>(
     appConfig.KEY
   );
   const keepAliveTimer = setInterval(() => undefined, 2_147_483_647);
 
+  app.useLogger(logger);
   app.enableShutdownHooks();
-  registerShutdownHandlers(app, keepAliveTimer);
+  registerShutdownHandlers(app, keepAliveTimer, logger);
 
-  await waitForWorkerReadiness(app, workerReadyFile);
-  logger.log("Ingestion worker started and is waiting for jobs.");
+  await waitForWorkerReadiness(app, workerReadyFile, logger);
+  logger.info(
+    {
+      event: "worker.started",
+      workerReadyFile,
+    },
+    "Ingestion worker started and is waiting for jobs."
+  );
 }
 
 /**
@@ -33,7 +41,8 @@ async function bootstrapIngestionWorker(): Promise<void> {
  */
 async function waitForWorkerReadiness(
   app: INestApplicationContext,
-  workerReadyFile: string
+  workerReadyFile: string,
+  logger: PinoLoggerService
 ): Promise<void> {
   const healthService = app.get(HealthService);
 
@@ -42,11 +51,18 @@ async function waitForWorkerReadiness(
 
     if (readiness.status === "ok") {
       await writeWorkerReadyFile(workerReadyFile);
-      logger.log("Worker readiness verified and ready file written.");
+      logger.info(
+        {
+          event: "worker.readiness.verified",
+          workerReadyFile,
+        },
+        "Worker readiness verified and ready file written."
+      );
       return;
     }
 
-    logger.error({
+    logger.errorPayload({
+      event: "worker.readiness.failed",
       message: "Worker readiness check failed",
       dependencies: readiness.dependencies,
     });
@@ -72,13 +88,14 @@ function delay(delayMs: number): Promise<void> {
  */
 function registerShutdownHandlers(
   app: INestApplicationContext,
-  keepAliveTimer: NodeJS.Timeout
+  keepAliveTimer: NodeJS.Timeout,
+  logger: PinoLoggerService
 ): void {
   const shutdownSignals: NodeJS.Signals[] = ["SIGINT", "SIGTERM"];
 
   for (const shutdownSignal of shutdownSignals) {
     process.once(shutdownSignal, () => {
-      void shutdownIngestionWorker(app, keepAliveTimer, shutdownSignal);
+      void shutdownIngestionWorker(app, keepAliveTimer, shutdownSignal, logger);
     });
   }
 }
@@ -92,9 +109,16 @@ function registerShutdownHandlers(
 async function shutdownIngestionWorker(
   app: INestApplicationContext,
   keepAliveTimer: NodeJS.Timeout,
-  shutdownSignal: NodeJS.Signals
+  shutdownSignal: NodeJS.Signals,
+  logger: PinoLoggerService
 ): Promise<void> {
-  logger.log(`Received ${shutdownSignal}. Shutting down ingestion worker.`);
+  logger.info(
+    {
+      event: "worker.shutdown",
+      shutdownSignal,
+    },
+    `Received ${shutdownSignal}. Shutting down ingestion worker.`
+  );
   clearInterval(keepAliveTimer);
   await app.close();
   process.exit(0);

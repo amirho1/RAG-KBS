@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { cleanupOpenApiDoc } from "nestjs-zod";
 import { AppModule } from "./app.module.js";
+import { configureApiApplication } from "./bootstrap/api-bootstrap.js";
 import appConfig from "./config/app.config.js";
 
 /**
@@ -11,7 +12,15 @@ import appConfig from "./config/app.config.js";
  */
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  configureApiApplication(app);
   app.enableShutdownHooks();
+
+  // Enable versioning
+  app.enableVersioning({
+    type: VersioningType.URI,
+    prefix: "api/v",
+    defaultVersion: "1",
+  });
 
   // Create the Swagger document
   const openApiDoc = SwaggerModule.createDocument(
@@ -24,13 +33,6 @@ async function bootstrap() {
       .setVersion("1.0")
       .build()
   );
-
-  // Enable versioning
-  app.enableVersioning({
-    type: VersioningType.URI,
-    prefix: "api/v",
-    defaultVersion: "1",
-  });
 
   SwaggerModule.setup("api/v1/swagger", app, cleanupOpenApiDoc(openApiDoc), {
     swaggerOptions: {
