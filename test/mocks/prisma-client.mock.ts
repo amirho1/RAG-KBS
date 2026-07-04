@@ -6,6 +6,7 @@ export class PrismaClient {
    * Connect to the database.
    */
   async $connect(): Promise<void> {
+    await Promise.resolve();
     return undefined;
   }
 
@@ -13,6 +14,7 @@ export class PrismaClient {
    * Disconnect from the database.
    */
   async $disconnect(): Promise<void> {
+    await Promise.resolve();
     return undefined;
   }
 
@@ -20,6 +22,7 @@ export class PrismaClient {
    * Execute a raw SQL query.
    */
   async $queryRaw(): Promise<unknown> {
+    await Promise.resolve();
     return undefined;
   }
 }

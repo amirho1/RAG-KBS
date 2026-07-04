@@ -3,7 +3,7 @@ import { ConfigType } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { cleanupOpenApiDoc } from "nestjs-zod";
-import { AppModule } from "./app.module";
+import { AppModule } from "./app.module.js";
 import appConfig from "./config/app.config.js";
 
 /**

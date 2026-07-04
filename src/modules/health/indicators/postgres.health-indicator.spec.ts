@@ -1,11 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { jest } from "@jest/globals";
 import { PrismaService } from "../../../common/prisma/prisma.service.js";
 import healthConfig from "../../../config/health.config.js";
 import { PostgresHealthIndicator } from "./postgres.health-indicator.js";
 
 describe("PostgresHealthIndicator", () => {
   let postgresHealthIndicator: PostgresHealthIndicator;
-  let prismaService: { $queryRaw: jest.Mock };
+  let prismaService: { $queryRaw: jest.Mock<() => Promise<unknown>> };
 
   beforeEach(async () => {
     prismaService = {

@@ -1,3 +1,5 @@
+verifyDepsBeforeRun: false
+
 onlyBuiltDependencies:
   - "@prisma/engines"
   - prisma

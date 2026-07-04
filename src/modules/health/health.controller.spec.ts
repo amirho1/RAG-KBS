@@ -1,5 +1,6 @@
 import { HttpStatus } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
+import { jest } from "@jest/globals";
 import type { Response } from "express";
 import { HealthController } from "./health.controller.js";
 import { HealthService } from "./health.service.js";
@@ -7,19 +8,19 @@ import { HealthService } from "./health.service.js";
 describe("HealthController", () => {
   let healthController: HealthController;
   let healthService: {
-    getLiveness: jest.Mock;
-    checkReadiness: jest.Mock;
-    getOverallHealth: jest.Mock;
-    checkDependency: jest.Mock;
+    getLiveness: jest.Mock<HealthService["getLiveness"]>;
+    checkReadiness: jest.Mock<HealthService["checkReadiness"]>;
+    getOverallHealth: jest.Mock<HealthService["getOverallHealth"]>;
+    checkDependency: jest.Mock<HealthService["checkDependency"]>;
   };
-  let response: Pick<Response, "status">;
+  let response: { status: jest.Mock<(code: number) => Response> };
 
   beforeEach(async () => {
     healthService = {
-      getLiveness: jest.fn(),
-      checkReadiness: jest.fn(),
-      getOverallHealth: jest.fn(),
-      checkDependency: jest.fn(),
+      getLiveness: jest.fn<HealthService["getLiveness"]>(),
+      checkReadiness: jest.fn<HealthService["checkReadiness"]>(),
+      getOverallHealth: jest.fn<HealthService["getOverallHealth"]>(),
+      checkDependency: jest.fn<HealthService["checkDependency"]>(),
     };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -33,9 +34,11 @@ describe("HealthController", () => {
     }).compile();
 
     healthController = moduleRef.get(HealthController);
+    const status = jest.fn<(code: number) => Response>();
     response = {
-      status: jest.fn().mockReturnThis(),
+      status,
     };
+    status.mockReturnValue(response as unknown as Response);
   });
 
   it("should return live status with HTTP 200", () => {
@@ -59,7 +62,9 @@ describe("HealthController", () => {
       timestamp: "2026-07-04T00:00:00.000Z",
     });
 
-    const result = await healthController.getReady(response as Response);
+    const result = await healthController.getReady(
+      response as unknown as Response
+    );
 
     expect(result.status).toBe("ok");
     expect(response.status).toHaveBeenCalledWith(HttpStatus.OK);
@@ -79,7 +84,9 @@ describe("HealthController", () => {
       timestamp: "2026-07-04T00:00:00.000Z",
     });
 
-    const result = await healthController.getReady(response as Response);
+    const result = await healthController.getReady(
+      response as unknown as Response
+    );
 
     expect(result.status).toBe("error");
     expect(response.status).toHaveBeenCalledWith(
@@ -96,7 +103,9 @@ describe("HealthController", () => {
       timestamp: "2026-07-04T00:00:00.000Z",
     });
 
-    const result = await healthController.getRedisHealth(response as Response);
+    const result = await healthController.getRedisHealth(
+      response as unknown as Response
+    );
 
     expect(result.message).toBe("Redis health check failed");
     expect(response.status).toHaveBeenCalledWith(

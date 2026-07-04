@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { ConfigType } from "@nestjs/config";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import healthConfig from "../../../config/health.config.js";
 import { REDIS_CLIENT } from "../../../common/redis/redis.constants.js";
 import type { DependencyHealthResult } from "../types/health.types.js";

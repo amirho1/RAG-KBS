@@ -61,6 +61,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -130,6 +132,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -239,5 +243,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - rag-kbs
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - >
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}"
+        "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing "local/$${S3_BUCKET}"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rag-kbs-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rag-kbs-minio-password}
+      S3_BUCKET: ${S3_BUCKET:-rag-kbs-development}
+    depends_on:
+      minio:
+        condition: service_healthy
     networks:
       - rag-kbs

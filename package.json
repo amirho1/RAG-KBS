@@ -4,6 +4,7 @@
   "description": "RAG-KBS is a framework for building knowledge bases using RAG.",
   "author": "Amir Hossein Salighedar",
   "private": true,
+  "type": "module",
   "license": "private",
   "packageManager": "pnpm@11.8.0",
   "scripts": {
@@ -18,11 +19,11 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"*.json\" \"*.yml\" \"pnpm-workspace.yaml\" \"*.md\"",
     "typecheck": "tsc --noEmit",
     "check-types": "pnpm typecheck",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:debug": "node --inspect-brk --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+    "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json --runInBand --detectOpenHandles",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
@@ -59,6 +60,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
+    "@jest/globals": "30.4.1",
     "@jest/types": "^30.4.1",
     "@nestjs/cli": "^11.0.23",
     "@nestjs/schematics": "^11.0.0",
@@ -90,6 +92,9 @@
       "json",
       "ts"
     ],
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
     "moduleNameMapper": {
       "^.+generated/prisma/client(\\.js)?$": "<rootDir>/../test/mocks/prisma-client.mock.ts",
       "^(\\.{1,2}/.*)\\.js$": "$1"
@@ -100,7 +105,12 @@
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "useESM": true
+        }
+      ]
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

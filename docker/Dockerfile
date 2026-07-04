@@ -19,7 +19,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && npm install --global "pnpm@${PNPM_VERSION}"
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc prisma.config.ts ./
+COPY prisma ./prisma
 
 FROM base AS dependencies
 

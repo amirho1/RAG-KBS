@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { jest } from "@jest/globals";
 import appConfig from "../../config/app.config.js";
 import { HealthService } from "./health.service.js";
 import { PostgresHealthIndicator } from "./indicators/postgres.health-indicator.js";
@@ -9,6 +10,10 @@ import { StorageHealthIndicator } from "./indicators/storage.health-indicator.js
 import type { DependencyHealthResult } from "./types/health.types.js";
 
 const timestamp = "2026-07-04T00:00:00.000Z";
+
+type HealthIndicatorMock = {
+  check: jest.Mock<() => Promise<DependencyHealthResult>>;
+};
 
 function createDependencyResult(
   dependency: string,
@@ -33,11 +38,11 @@ function createDependencyResult(
 
 describe("HealthService", () => {
   let healthService: HealthService;
-  let postgresHealthIndicator: { check: jest.Mock };
-  let redisHealthIndicator: { check: jest.Mock };
-  let qdrantHealthIndicator: { check: jest.Mock };
-  let storageHealthIndicator: { check: jest.Mock };
-  let queueHealthIndicator: { check: jest.Mock };
+  let postgresHealthIndicator: HealthIndicatorMock;
+  let redisHealthIndicator: HealthIndicatorMock;
+  let qdrantHealthIndicator: HealthIndicatorMock;
+  let storageHealthIndicator: HealthIndicatorMock;
+  let queueHealthIndicator: HealthIndicatorMock;
 
   beforeEach(async () => {
     postgresHealthIndicator = { check: jest.fn() };

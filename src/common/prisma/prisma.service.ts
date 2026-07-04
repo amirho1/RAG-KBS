@@ -6,9 +6,9 @@ import {
 } from "@nestjs/common";
 import type { ConfigType } from "@nestjs/config";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
-import databaseConfig from "../../config/database.config";
+import databaseConfig from "../../config/database.config.js";
+import { PrismaClient } from "../../generated/prisma/client.js";
 
 /**
  * Prisma database service backed by the PostgreSQL driver adapter.

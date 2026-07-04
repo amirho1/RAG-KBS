@@ -1,8 +1,9 @@
 import { Global, Module } from "@nestjs/common";
 import type { ConfigType } from "@nestjs/config";
-import Redis from "ioredis";
+import { Redis } from "ioredis";
 import redisConfig from "../../config/redis.config.js";
 import { REDIS_CLIENT } from "./redis.constants.js";
+import { RedisLifecycleService } from "./redis-lifecycle.service.js";
 
 /**
  * Global Redis client module.
@@ -19,6 +20,7 @@ import { REDIS_CLIENT } from "./redis.constants.js";
         });
       },
     },
+    RedisLifecycleService,
   ],
   exports: [REDIS_CLIENT],
 })

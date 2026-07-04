@@ -14,6 +14,7 @@ import type { Response } from "express";
 import { HealthService } from "./health.service.js";
 import type {
   DependencyHealthResult,
+  DependencyName,
   LivenessResult,
   OverallHealthResult,
   ReadinessResult,
@@ -169,7 +170,7 @@ export class HealthController {
    */
   private async getDependencyHealth(
     response: Response,
-    dependencyName: "postgres" | "redis" | "qdrant" | "storage" | "queue"
+    dependencyName: DependencyName
   ): Promise<DependencyHealthResult> {
     const dependencyHealth =
       await this.healthService.checkDependency(dependencyName);
