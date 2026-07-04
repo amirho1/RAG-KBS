@@ -1,0 +1,218 @@
+flowchart TD
+
+%% ===================================================== %% EXTERNAL CALLERS %%
+=====================================================
+
+subgraph EXT["External Systems"] ClientApp["Client Applications"] BackendSvc["Main Backend
+Services"] AIAgent["AI Agents"] APIGateway["API Gateway / Auth Middleware"] end
+
+ClientApp --> APIGateway BackendSvc --> APIGateway AIAgent --> APIGateway
+
+APIGateway -->|"Trusted HTTP Requests"| API
+
+%% ===================================================== %% RAG-KBS SERVICE BOUNDARY %%
+=====================================================
+
+subgraph RAGKBS["RAG-KBS Dockerized Microservice Boundary"]
+
+%% ===================================================== %% API SERVICE %%
+=====================================================
+
+subgraph APIContainer["Docker Container: api"] API["NestJS API Service"]
+
+    SourcesModule["Sources Module"]
+    FilesModule["Files Module"]
+    TagsModule["Tags Module"]
+    IngestionModule["Ingestion Module"]
+    RetrievalModule["Retrieval Module"]
+    MaintenanceModule["Maintenance Module"]
+    HealthModule["Health Module"]
+    ConfigModule["Config Module"]
+
+    API --> SourcesModule
+    API --> FilesModule
+    API --> TagsModule
+    API --> IngestionModule
+    API --> RetrievalModule
+    API --> MaintenanceModule
+    API --> HealthModule
+    API --> ConfigModule
+
+end
+
+%% ===================================================== %% WORKER SERVICE %%
+=====================================================
+
+subgraph WorkerContainer["Docker Container: worker"] Worker["BullMQ Ingestion Worker"]
+
+    FileLoader["File Loader"]
+    Parser["Document Parser"]
+    TextExtractor["Text Extractor"]
+    Chunker["Chunking Engine"]
+    EmbeddingGenerator["Embedding Generator"]
+    VectorWriter["Qdrant Vector Writer"]
+    MetadataWriter["Postgres Metadata Writer"]
+    JobStatusUpdater["Job Status Updater"]
+
+    Worker --> FileLoader
+    FileLoader --> Parser
+    Parser --> TextExtractor
+    TextExtractor --> Chunker
+    Chunker --> EmbeddingGenerator
+    EmbeddingGenerator --> VectorWriter
+    VectorWriter --> MetadataWriter
+    MetadataWriter --> JobStatusUpdater
+
+end
+
+%% ===================================================== %% INTERNAL INFRASTRUCTURE %%
+=====================================================
+
+subgraph Infra["Dockerized Infrastructure"] Postgres[("PostgreSQL")] Redis[("Redis")]
+Qdrant[("Qdrant Vector DB")] FileStorage[("Object Storage / Local Volume / MinIO")] end
+
+%% ===================================================== %% OBSERVABILITY %%
+=====================================================
+
+subgraph Obs["Observability"] Logs["Structured Logs"] Metrics["Metrics"] HealthChecks["Health
+Checks"] QueueMonitoring["Queue Monitoring"] end
+
+end
+
+%% ===================================================== %% POSTGRES DATA MODEL %%
+=====================================================
+
+subgraph PGData["PostgreSQL Data"] SourceTable["Source"] FileTable["File"] TagTable["Tag"]
+ChunkTable["Chunk Metadata"] IngestionJobTable["IngestionJob"] EmbeddingModelTable["EmbeddingModel"]
+TenantFields["tenantId / organizationId / projectId"] end
+
+Postgres --> SourceTable Postgres --> FileTable Postgres --> TagTable Postgres --> ChunkTable
+Postgres --> IngestionJobTable Postgres --> EmbeddingModelTable Postgres --> TenantFields
+
+%% ===================================================== %% QDRANT PAYLOAD MODEL %%
+=====================================================
+
+subgraph QPayload["Qdrant Vector Payload"] VectorPoint["Vector Point"] PayloadSourceId["sourceId"]
+PayloadFileId["fileId"] PayloadChunkId["chunkId"] PayloadTags["tags"] PayloadText["text"]
+PayloadDocType["documentType"] PayloadMimeType["mimeType"] PayloadTenant["tenantId / organizationId
+/ projectId"] PayloadMetadata["metadata"] end
+
+Qdrant --> VectorPoint VectorPoint --> PayloadSourceId VectorPoint --> PayloadFileId VectorPoint -->
+PayloadChunkId VectorPoint --> PayloadTags VectorPoint --> PayloadText VectorPoint -->
+PayloadDocType VectorPoint --> PayloadMimeType VectorPoint --> PayloadTenant VectorPoint -->
+PayloadMetadata
+
+%% ===================================================== %% API CRUD FLOWS %%
+=====================================================
+
+SourcesModule -->|"CRUD source records"| Postgres FilesModule -->|"CRUD file records"| Postgres
+TagsModule -->|"CRUD tags"| Postgres
+
+FilesModule -->|"Store original uploaded files"| FileStorage FilesModule -->|"Save file metadata"|
+Postgres
+
+%% ===================================================== %% INGESTION FLOW %%
+=====================================================
+
+APIGateway -->|"POST /api/v1/files"| FilesModule APIGateway -->|"POST /api/v1/files/:id/ingest"|
+IngestionModule
+
+IngestionModule -->|"Create ingestion job record"| Postgres IngestionModule -->|"Push ingestion
+job"| Redis
+
+Redis -->|"BullMQ job picked up"| Worker
+
+Worker -->|"Load original file"| FileStorage Worker -->|"Read file metadata"| Postgres
+
+Parser -->|"PDF / DOCX / TXT / MD / CSV / XLSX / JSON / OpenAPI"| TextExtractor Chunker -->|"Create
+chunks with overlap and metadata"| ChunkTable
+
+EmbeddingGenerator -->|"Read active embedding model"| EmbeddingModelTable EmbeddingGenerator
+-->|"Generate chunk embeddings"| EmbeddingProvider["Embedding Provider"]
+
+VectorWriter -->|"Store vectors and payloads"| Qdrant MetadataWriter -->|"Store chunk metadata and
+qdrantPointId"| Postgres JobStatusUpdater -->|"Update file and ingestion job status"| Postgres
+
+%% ===================================================== %% RETRIEVAL / QUERY FLOW %%
+=====================================================
+
+APIGateway -->|"POST /api/v1/query"| RetrievalModule APIGateway -->|"POST /api/v1/query/by-tags"|
+RetrievalModule APIGateway -->|"POST /api/v1/query/by-source"| RetrievalModule APIGateway -->|"POST
+/api/v1/query/similar"| RetrievalModule
+
+RetrievalModule -->|"Validate query request"| RetrievalValidation["Request Validation"]
+RetrievalValidation -->|"Apply filters"| RetrievalFilters["Metadata Filters"]
+
+RetrievalFilters -->|"sourceId / fileId / tags / documentType / tenantId"| Qdrant RetrievalModule
+-->|"Read active embedding model"| Postgres RetrievalModule -->|"Embed user query"|
+EmbeddingProvider EmbeddingProvider -->|"Query vector"| RetrievalModule
+
+RetrievalModule -->|"Semantic search with filters"| Qdrant Qdrant -->|"Relevant chunks"|
+RetrievalModule
+
+RetrievalModule -->|"Optional reranking"| Reranker["Optional Reranker"] Reranker --> RetrievalModule
+
+RetrievalModule -->|"Return structured retrieval results"| APIGateway APIGateway --> ClientApp
+APIGateway --> BackendSvc APIGateway --> AIAgent
+
+AIAgent -->|"Uses retrieved chunks to build final answer"| FinalAnswer["Final AI Answer Outside
+RAG-KBS"]
+
+%% ===================================================== %% DELETE FLOW %%
+=====================================================
+
+APIGateway -->|"DELETE /api/v1/files/:id"| MaintenanceModule APIGateway -->|"DELETE
+/api/v1/sources/:id"| MaintenanceModule
+
+MaintenanceModule -->|"Mark source/file as deleting"| Postgres MaintenanceModule -->|"Delete related
+Qdrant points by metadata filter"| Qdrant MaintenanceModule -->|"Soft-delete or delete relational
+records"| Postgres MaintenanceModule -->|"Delete or retain original files based on policy"|
+FileStorage MaintenanceModule -->|"Mark deletion complete"| Postgres
+
+%% ===================================================== %% RE-INGESTION / RE-EMBEDDING FLOW %%
+=====================================================
+
+APIGateway -->|"POST /api/v1/files/:id/reingest"| MaintenanceModule APIGateway -->|"POST
+/api/v1/files/:id/reembed"| MaintenanceModule APIGateway -->|"POST /api/v1/sources/:id/reembed"|
+MaintenanceModule
+
+MaintenanceModule -->|"Create new ingestion or re-embedding job"| Postgres MaintenanceModule
+-->|"Push reprocessing job"| Redis
+
+Redis -->|"Worker reprocesses file/source"| Worker
+
+Worker -->|"Remove or replace old vectors"| Qdrant Worker -->|"Generate new chunks or embeddings"|
+EmbeddingProvider Worker -->|"Store new vectors"| Qdrant Worker -->|"Update chunk metadata and model
+version"| Postgres
+
+%% ===================================================== %% MODEL UPGRADE FLOW %%
+=====================================================
+
+ConfigModule -->|"Manage embedding model config"| EmbeddingModelTable EmbeddingModelTable
+-->|"provider / modelName / dimension / isActive"| ConfigModule
+
+MaintenanceModule -->|"Create new Qdrant collection if dimension changes"| Qdrant MaintenanceModule
+-->|"Gradually migrate selected files/sources"| Redis MaintenanceModule -->|"Keep old collection
+until verified"| Qdrant
+
+%% ===================================================== %% HEALTH AND OBSERVABILITY %%
+=====================================================
+
+HealthModule -->|"GET /api/v1/health/postgres"| Postgres HealthModule -->|"GET
+/api/v1/health/redis"| Redis HealthModule -->|"GET /api/v1/health/qdrant"| Qdrant HealthModule
+-->|"GET /api/v1/health/storage"| FileStorage
+
+API --> Logs Worker --> Logs
+
+API --> Metrics Worker --> Metrics Redis --> QueueMonitoring
+
+HealthModule --> HealthChecks
+
+%% ===================================================== %% SECURITY AND BOUNDARY NOTES %%
+=====================================================
+
+SecurityNote["RAG-KBS does not handle auth, users, billing, frontend, or business workflows"]
+APIGateway -->|"Auth and permission checks happen before RAG-KBS"| SecurityNote SecurityNote --> API
+
+ValidationNote["RAG-KBS still validates request shape, file type, file size, and safe parsing"] API
+--> ValidationNote ValidationNote --> FilesModule ValidationNote --> IngestionModule
