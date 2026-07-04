@@ -1,13 +1,1408 @@
 datasource db {
-  provider   = "postgresql"
-  extensions = [vector]
+  provider = "postgresql"
 }
 
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["relationJoins", "postgresqlExtensions"]
+  previewFeatures = ["relationJoins"]
 }
 
 generator dbml {
   provider = "prisma-dbml-generator"
+}
+
+/**
+ * ============================================================
+ * ENUMS
+ * ============================================================
+ */
+
+enum LifecycleStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+  DELETING
+  DELETED
+}
+
+enum ProcessingState {
+  NOT_STARTED
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+  SKIPPED
+}
+
+enum KnowledgeBaseStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+  DELETING
+  DELETED
+}
+
+enum SourceType {
+  UPLOAD
+  URL
+  WEB_PAGE
+  SITEMAP
+  API_DOCUMENTATION
+  OPENAPI
+  SWAGGER
+  MARKDOWN
+  TEXT
+  POLICY
+  MANUAL
+  FAQ
+  DATABASE_EXPORT
+  CUSTOM
+}
+
+enum SourceSyncMode {
+  MANUAL
+  SCHEDULED
+  WEBHOOK
+  API_PUSH
+}
+
+enum DocumentFileType {
+  PDF
+  DOCX
+  TXT
+  MARKDOWN
+  HTML
+  CSV
+  XLSX
+  JSON
+  XML
+  IMAGE
+  AUDIO
+  VIDEO
+  OPENAPI
+  UNKNOWN
+}
+
+enum FileStatus {
+  UPLOADED
+  STORED
+  WAITING_FOR_INGESTION
+  INGESTING
+  INGESTED
+  PARTIALLY_INGESTED
+  FAILED
+  NEEDS_REINGESTION
+  NEEDS_REEMBEDDING
+  DELETING
+  DELETED
+}
+
+enum StorageProvider {
+  LOCAL
+  S3
+  MINIO
+  GCS
+  AZURE_BLOB
+  CUSTOM
+}
+
+enum IngestionJobType {
+  INGEST_FILE
+  INGEST_SOURCE
+  REINGEST_FILE
+  REINGEST_SOURCE
+  REEMBED_FILE
+  REEMBED_SOURCE
+  DELETE_FILE_VECTORS
+  DELETE_SOURCE_VECTORS
+  REBUILD_KEYWORD_INDEX
+  MIGRATE_COLLECTION
+}
+
+enum JobStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  COMPLETED
+  PARTIALLY_COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+  SKIPPED
+}
+
+enum AttemptStatus {
+  STARTED
+  COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+enum ParserStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum ChunkStatus {
+  ACTIVE
+  SUPERSEDED
+  NEEDS_EMBEDDING
+  EMBEDDED
+  FAILED
+  DELETING
+  DELETED
+}
+
+enum EmbeddingProvider {
+  OPENAI
+  AZURE_OPENAI
+  ANTHROPIC
+  GOOGLE
+  COHERE
+  VOYAGE
+  MISTRAL
+  HUGGINGFACE
+  OLLAMA
+  LOCAL
+  CUSTOM
+}
+
+enum DistanceMetric {
+  COSINE
+  DOT
+  EUCLID
+  MANHATTAN
+}
+
+enum QdrantCollectionStatus {
+  ACTIVE
+  CREATING
+  MIGRATING
+  READ_ONLY
+  DEPRECATED
+  DELETING
+  DELETED
+  FAILED
+}
+
+enum EmbeddingStatus {
+  PENDING
+  EMBEDDING
+  INDEXED
+  FAILED
+  SUPERSEDED
+  DELETING
+  DELETED
+}
+
+enum VectorOperationType {
+  UPSERT
+  UPDATE_PAYLOAD
+  DELETE_POINT
+  DELETE_BY_FILTER
+  CREATE_COLLECTION
+  MIGRATE_COLLECTION
+  VERIFY_COLLECTION
+}
+
+enum RetrievalSearchType {
+  VECTOR
+  KEYWORD
+  HYBRID
+  SIMILAR_CHUNKS
+}
+
+enum RetrievalStatus {
+  SUCCESS
+  PARTIAL_SUCCESS
+  FAILED
+}
+
+enum ReprocessingType {
+  REINGEST
+  REEMBED
+  RECHUNK
+  REPARSE
+  COLLECTION_MIGRATION
+  KEYWORD_REINDEX
+}
+
+enum ReprocessingReason {
+  MANUAL
+  SOURCE_CHANGED
+  FILE_CHANGED
+  PARSER_CHANGED
+  CHUNKING_CHANGED
+  EMBEDDING_MODEL_CHANGED
+  EMBEDDING_CONFIG_CHANGED
+  QDRANT_COLLECTION_CHANGED
+  FAILURE_RECOVERY
+  SCHEDULED_REFRESH
+}
+
+enum ProcessingEventType {
+  SOURCE_CREATED
+  SOURCE_UPDATED
+  FILE_UPLOADED
+  FILE_STORED
+  INGESTION_QUEUED
+  INGESTION_STARTED
+  PARSING_STARTED
+  PARSING_COMPLETED
+  CHUNKING_STARTED
+  CHUNKING_COMPLETED
+  EMBEDDING_STARTED
+  EMBEDDING_COMPLETED
+  VECTOR_INDEXING_STARTED
+  VECTOR_INDEXING_COMPLETED
+  RETRIEVAL_EXECUTED
+  REPROCESSING_STARTED
+  REPROCESSING_COMPLETED
+  ERROR_OCCURRED
+  SOFT_DELETED
+  RESTORED
+}
+
+/**
+ * ============================================================
+ * KNOWLEDGE BASES AND SOURCES
+ * ============================================================
+ */
+
+model KnowledgeBase {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// External tenant boundary. RAG-KBS does not own auth, but it must still isolate data.
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  /// Optional external ID from the calling platform.
+  externalId String? @db.VarChar(191)
+
+  name        String  @db.VarChar(255)
+  slug        String  @db.VarChar(255)
+  description String? @db.Text
+
+  status KnowledgeBaseStatus @default(ACTIVE)
+
+  /// Flexible metadata for caller-owned labels, domain context, or import settings.
+  metadata Json?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  sources             Source[]
+  files               DocumentFile[]
+  tags                KnowledgeBaseTag[]
+  ingestionJobs       IngestionJob[]
+  retrievalLogs       RetrievalQuery[]
+  profiles            RetrievalProfile[]
+  embeddingConfigs    EmbeddingConfig[]
+  reprocessingBatches ReprocessingBatch[]
+  parsedDocuments     ParsedDocument[]
+  documentChunks      DocumentChunk[]
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, externalId])
+  @@index([tenantId, organizationId, projectId])
+  @@index([tenantId, status])
+  @@index([deletedAt])
+  @@map("knowledge_bases")
+}
+
+model Source {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId String        @db.Uuid
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  parentSourceId String?  @db.Uuid
+  parentSource   Source?  @relation("SourceHierarchy", fields: [parentSourceId], references: [id], onDelete: SetNull)
+  childSources   Source[] @relation("SourceHierarchy")
+
+  externalId String? @db.VarChar(191)
+
+  name        String  @db.VarChar(255)
+  slug        String  @db.VarChar(255)
+  description String? @db.Text
+
+  type            SourceType
+  syncMode        SourceSyncMode  @default(MANUAL)
+  status          LifecycleStatus @default(ACTIVE)
+  processingState ProcessingState @default(NOT_STARTED)
+
+  /// For URL, sitemap, API docs, or connected source references.
+  uri String? @db.Text
+
+  /// Source-level checksum helps detect whether a remote source changed.
+  checksumSha256 String? @db.VarChar(64)
+  contentHash    String? @db.VarChar(64)
+
+  lastIngestedAt DateTime?
+  lastSyncedAt   DateTime?
+
+  metadata Json?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  files            DocumentFile[]
+  tags             SourceTag[]
+  parsedDocuments  ParsedDocument[]
+  chunks           DocumentChunk[]
+  ingestionJobs    IngestionJob[]
+  processingEvents ProcessingEvent[]
+
+  @@unique([tenantId, knowledgeBaseId, slug])
+  @@unique([tenantId, knowledgeBaseId, externalId])
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId, status])
+  @@index([tenantId, type])
+  @@index([checksumSha256])
+  @@index([contentHash])
+  @@index([deletedAt])
+  @@map("sources")
+}
+
+/**
+ * ============================================================
+ * STORAGE AND FILES
+ * ============================================================
+ */
+
+model StorageObject {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  provider  StorageProvider
+  bucket    String?         @db.VarChar(255)
+  objectKey String          @db.Text
+  region    String?         @db.VarChar(128)
+  endpoint  String?         @db.Text
+
+  /// Optional version ID from S3-compatible storage.
+  versionId String? @db.VarChar(255)
+
+  originalName String? @db.VarChar(512)
+  mimeType     String? @db.VarChar(255)
+  extension    String? @db.VarChar(32)
+  sizeBytes    BigInt
+
+  /// Binary checksum for duplicate prevention and safe reprocessing.
+  checksumSha256 String  @db.VarChar(64)
+  etag           String? @db.VarChar(255)
+
+  metadata Json?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  files DocumentFile[]
+
+  @@unique([tenantId, provider, bucket, objectKey])
+  @@index([tenantId, checksumSha256])
+  @@index([tenantId, provider])
+  @@index([deletedAt])
+  @@map("storage_objects")
+}
+
+model DocumentFile {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId String        @db.Uuid
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  sourceId String @db.Uuid
+  source   Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  storageObjectId String        @db.Uuid
+  storageObject   StorageObject @relation(fields: [storageObjectId], references: [id], onDelete: Restrict)
+
+  previousFileId String?        @db.Uuid
+  previousFile   DocumentFile?  @relation("FileVersionHistory", fields: [previousFileId], references: [id], onDelete: SetNull)
+  nextVersions   DocumentFile[] @relation("FileVersionHistory")
+
+  externalId String? @db.VarChar(191)
+
+  originalName   String  @db.VarChar(512)
+  normalizedName String? @db.VarChar(512)
+  logicalPath    String? @db.Text
+
+  mimeType  String           @db.VarChar(255)
+  extension String?          @db.VarChar(32)
+  fileType  DocumentFileType @default(UNKNOWN)
+  sizeBytes BigInt
+
+  /// File binary checksum.
+  checksumSha256 String @db.VarChar(64)
+
+  /// Hash of normalized extracted content. This may be unknown until parsing.
+  contentHash String? @db.VarChar(64)
+
+  version         Int             @default(1)
+  status          FileStatus      @default(UPLOADED)
+  processingState ProcessingState @default(NOT_STARTED)
+
+  title       String? @db.VarChar(512)
+  description String? @db.Text
+  language    String? @db.VarChar(32)
+
+  uploadedAt     DateTime  @default(now())
+  lastIngestedAt DateTime?
+  lastEmbeddedAt DateTime?
+
+  metadata Json?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tags             FileTag[]
+  parsedDocuments  ParsedDocument[]
+  chunks           DocumentChunk[]
+  ingestionJobs    IngestionJob[]
+  processingEvents ProcessingEvent[]
+
+  @@unique([tenantId, sourceId, checksumSha256])
+  @@unique([tenantId, sourceId, externalId])
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId, status])
+  @@index([sourceId, status])
+  @@index([storageObjectId])
+  @@index([checksumSha256])
+  @@index([contentHash])
+  @@index([deletedAt])
+  @@map("document_files")
+}
+
+/**
+ * ============================================================
+ * TAGGING
+ * ============================================================
+ */
+
+model Tag {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  name           String  @db.VarChar(128)
+  normalizedName String  @db.VarChar(128)
+  description    String? @db.Text
+  color          String? @db.VarChar(32)
+
+  metadata Json?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  knowledgeBases KnowledgeBaseTag[]
+  sources        SourceTag[]
+  files          FileTag[]
+
+  @@unique([tenantId, normalizedName])
+  @@index([tenantId, organizationId, projectId])
+  @@index([deletedAt])
+  @@map("tags")
+}
+
+model KnowledgeBaseTag {
+  knowledgeBaseId String @db.Uuid
+  tagId           String @db.Uuid
+
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  tag           Tag           @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([knowledgeBaseId, tagId])
+  @@index([tagId])
+  @@map("knowledge_base_tags")
+}
+
+model SourceTag {
+  sourceId String @db.Uuid
+  tagId    String @db.Uuid
+
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([sourceId, tagId])
+  @@index([tagId])
+  @@map("source_tags")
+}
+
+model FileTag {
+  fileId String @db.Uuid
+  tagId  String @db.Uuid
+
+  file DocumentFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  tag  Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([fileId, tagId])
+  @@index([tagId])
+  @@map("file_tags")
+}
+
+/**
+ * ============================================================
+ * PARSING AND CHUNKING
+ * ============================================================
+ */
+
+model ParserProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  name          String @db.VarChar(255)
+  parserName    String @db.VarChar(255)
+  parserVersion String @db.VarChar(64)
+
+  /// Supported file types and parser options live here.
+  config    Json?
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parsedDocuments ParsedDocument[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isDefault])
+  @@map("parser_profiles")
+}
+
+model ParsedDocument {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId String  @db.Uuid
+  sourceId        String  @db.Uuid
+  fileId          String  @db.Uuid
+  parserProfileId String? @db.Uuid
+  ingestionJobId  String? @db.Uuid
+
+  knowledgeBase KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  source        Source         @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  file          DocumentFile   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  parserProfile ParserProfile? @relation(fields: [parserProfileId], references: [id], onDelete: SetNull)
+  ingestionJob  IngestionJob?  @relation(fields: [ingestionJobId], references: [id], onDelete: SetNull)
+
+  status ParserStatus @default(PENDING)
+
+  parserName    String @db.VarChar(255)
+  parserVersion String @db.VarChar(64)
+
+  title    String? @db.VarChar(512)
+  language String? @db.VarChar(32)
+
+  /// Store extracted text if you want PostgreSQL to keep the parse result.
+  /// For very large files, you can store only textPreview and keep full text in object storage.
+  extractedText String? @db.Text
+  textPreview   String? @db.Text
+
+  charCount  Int?
+  tokenCount Int?
+  pageCount  Int?
+
+  /// Hash of normalized extracted text. Used to skip unnecessary rechunking.
+  contentHash String? @db.VarChar(64)
+
+  /// Parser output structure: pages, headings, tables, rows, endpoint paths, etc.
+  structure Json?
+
+  errorCode    String? @db.VarChar(128)
+  errorMessage String? @db.Text
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  chunks DocumentChunk[]
+
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId, status])
+  @@index([sourceId])
+  @@index([fileId, status])
+  @@index([ingestionJobId])
+  @@index([contentHash])
+  @@index([deletedAt])
+  @@map("parsed_documents")
+}
+
+model ChunkingConfig {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  name String @db.VarChar(255)
+
+  /// Examples: recursive_text, markdown_heading, page_aware, table_aware, openapi_endpoint.
+  strategy String @db.VarChar(128)
+
+  chunkSize    Int
+  chunkOverlap Int @default(0)
+
+  /// Tokenizer name matters because token counts differ by model.
+  tokenizer String? @db.VarChar(128)
+
+  preserveHeadings Boolean @default(true)
+  preserveTables   Boolean @default(false)
+
+  config    Json?
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chunks           DocumentChunk[]
+  embeddingConfigs EmbeddingConfig[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isDefault])
+  @@map("chunking_configs")
+}
+
+model DocumentChunk {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId  String  @db.Uuid
+  sourceId         String  @db.Uuid
+  fileId           String  @db.Uuid
+  parsedDocumentId String  @db.Uuid
+  chunkingConfigId String? @db.Uuid
+
+  knowledgeBase  KnowledgeBase   @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  source         Source          @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  file           DocumentFile    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  parsedDocument ParsedDocument  @relation(fields: [parsedDocumentId], references: [id], onDelete: Cascade)
+  chunkingConfig ChunkingConfig? @relation(fields: [chunkingConfigId], references: [id], onDelete: SetNull)
+
+  chunkIndex Int
+
+  /// Deterministic hash of normalized chunk text. Helps skip duplicate embeddings.
+  contentHash String @db.VarChar(64)
+
+  text        String? @db.Text
+  textPreview String  @db.Text
+
+  tokenCount Int?
+  charCount  Int?
+
+  startChar Int?
+  endChar   Int?
+  pageStart Int?
+  pageEnd   Int?
+
+  /// For section-aware retrieval: headings, table name, endpoint path, sheet name, JSON path, etc.
+  headingPath Json?
+  metadata    Json?
+
+  status ChunkStatus @default(NEEDS_EMBEDDING)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  embeddings       ChunkEmbedding[]
+  keywordIndex     ChunkKeywordIndex?
+  retrievalResults RetrievalResult[]
+
+  @@unique([parsedDocumentId, chunkIndex])
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId, status])
+  @@index([sourceId, status])
+  @@index([fileId, status])
+  @@index([contentHash])
+  @@index([deletedAt])
+  @@map("document_chunks")
+}
+
+model ChunkKeywordIndex {
+  chunkId String @id @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId String @db.Uuid
+  sourceId        String @db.Uuid
+  fileId          String @db.Uuid
+
+  chunk DocumentChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  /// Plain search text. Add a raw PostgreSQL migration for GIN/tsvector if you use Postgres keyword search.
+  searchText  String  @db.Text
+  language    String? @db.VarChar(32)
+  contentHash String  @db.VarChar(64)
+
+  status    ProcessingState @default(COMPLETED)
+  indexedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId])
+  @@index([sourceId])
+  @@index([fileId])
+  @@index([contentHash])
+  @@map("chunk_keyword_indexes")
+}
+
+/**
+ * ============================================================
+ * EMBEDDINGS AND QDRANT
+ * ============================================================
+ */
+
+model EmbeddingModel {
+  id String @id @default(uuid()) @db.Uuid
+
+  provider    EmbeddingProvider
+  modelName   String            @db.VarChar(255)
+  displayName String?           @db.VarChar(255)
+
+  dimension      Int
+  distanceMetric DistanceMetric @default(COSINE)
+
+  maxInputTokens Int?
+  tokenizer      String? @db.VarChar(128)
+
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+
+  /// Provider-specific settings, model family, pricing hints, local path, etc.
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  configs          EmbeddingConfig[]
+  collections      QdrantCollection[]
+  embeddings       ChunkEmbedding[]
+  retrievalQueries RetrievalQuery[]
+
+  @@unique([provider, modelName, dimension])
+  @@index([provider, isActive])
+  @@index([isDefault])
+  @@map("embedding_models")
+}
+
+model EmbeddingConfig {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId String?        @db.Uuid
+  knowledgeBase   KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  embeddingModelId String         @db.Uuid
+  embeddingModel   EmbeddingModel @relation(fields: [embeddingModelId], references: [id], onDelete: Restrict)
+
+  chunkingConfigId String?         @db.Uuid
+  chunkingConfig   ChunkingConfig? @relation(fields: [chunkingConfigId], references: [id], onDelete: SetNull)
+
+  name String @db.VarChar(255)
+
+  /// Normalization, batching, dimensions override, provider routing, etc.
+  config Json?
+
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  collections       QdrantCollection[]
+  embeddings        ChunkEmbedding[]
+  ingestionJobs     IngestionJob[]
+  reprocessingFrom  ReprocessingBatch[] @relation("ReprocessFromEmbeddingConfig")
+  reprocessingTo    ReprocessingBatch[] @relation("ReprocessToEmbeddingConfig")
+  retrievalProfiles RetrievalProfile[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId, isDefault])
+  @@index([embeddingModelId])
+  @@map("embedding_configs")
+}
+
+model QdrantCollection {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  embeddingModelId String         @db.Uuid
+  embeddingModel   EmbeddingModel @relation(fields: [embeddingModelId], references: [id], onDelete: Restrict)
+
+  embeddingConfigId String?          @db.Uuid
+  embeddingConfig   EmbeddingConfig? @relation(fields: [embeddingConfigId], references: [id], onDelete: SetNull)
+
+  /// Actual Qdrant collection name.
+  name String @db.VarChar(255)
+
+  /// Optional alias used by the API so reads can switch collections safely.
+  alias String? @db.VarChar(255)
+
+  vectorSize     Int
+  distanceMetric DistanceMetric @default(COSINE)
+
+  status QdrantCollectionStatus @default(CREATING)
+
+  isDefaultRead  Boolean @default(false)
+  isDefaultWrite Boolean @default(false)
+
+  migratedFromId String?            @db.Uuid
+  migratedFrom   QdrantCollection?  @relation("QdrantCollectionMigration", fields: [migratedFromId], references: [id], onDelete: SetNull)
+  migrations     QdrantCollection[] @relation("QdrantCollectionMigration")
+
+  /// Qdrant shard count, replication factor, HNSW config, quantization config, etc.
+  config Json?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  embeddings        ChunkEmbedding[]
+  vectorOperations  VectorIndexOperation[]
+  retrievalProfiles RetrievalProfile[]
+  retrievalQueries  RetrievalQuery[]
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, alias])
+  @@index([tenantId, organizationId, projectId])
+  @@index([embeddingModelId])
+  @@index([embeddingConfigId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("qdrant_collections")
+}
+
+model ChunkEmbedding {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId String @db.Uuid
+  sourceId        String @db.Uuid
+  fileId          String @db.Uuid
+  chunkId         String @db.Uuid
+
+  embeddingModelId   String @db.Uuid
+  embeddingConfigId  String @db.Uuid
+  qdrantCollectionId String @db.Uuid
+
+  chunk            DocumentChunk    @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  embeddingModel   EmbeddingModel   @relation(fields: [embeddingModelId], references: [id], onDelete: Restrict)
+  embeddingConfig  EmbeddingConfig  @relation(fields: [embeddingConfigId], references: [id], onDelete: Restrict)
+  qdrantCollection QdrantCollection @relation(fields: [qdrantCollectionId], references: [id], onDelete: Restrict)
+
+  /// Deterministic Qdrant point ID. Usually UUID generated from collection + chunk + config.
+  qdrantPointId String @db.VarChar(191)
+
+  status EmbeddingStatus @default(PENDING)
+
+  vectorDimension Int
+
+  /// Hash of the text used for embedding. If chunk text changes, embedding becomes stale.
+  embeddedContentHash String @db.VarChar(64)
+
+  /// Hash of the Qdrant payload to detect whether payload re-sync is needed.
+  payloadHash String? @db.VarChar(64)
+
+  embeddedAt   DateTime?
+  indexedAt    DateTime?
+  lastSyncedAt DateTime?
+
+  errorCode    String? @db.VarChar(128)
+  errorMessage String? @db.Text
+
+  metadata Json?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  vectorOperations VectorIndexOperation[]
+  retrievalResults RetrievalResult[]
+
+  @@unique([qdrantCollectionId, qdrantPointId])
+  @@unique([chunkId, embeddingConfigId])
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId, status])
+  @@index([sourceId])
+  @@index([fileId])
+  @@index([chunkId])
+  @@index([embeddingModelId])
+  @@index([embeddingConfigId])
+  @@index([embeddedContentHash])
+  @@index([deletedAt])
+  @@map("chunk_embeddings")
+}
+
+model VectorIndexOperation {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  qdrantCollectionId String  @db.Uuid
+  chunkEmbeddingId   String? @db.Uuid
+  ingestionJobId     String? @db.Uuid
+
+  qdrantCollection QdrantCollection @relation(fields: [qdrantCollectionId], references: [id], onDelete: Cascade)
+  chunkEmbedding   ChunkEmbedding?  @relation(fields: [chunkEmbeddingId], references: [id], onDelete: SetNull)
+  ingestionJob     IngestionJob?    @relation(fields: [ingestionJobId], references: [id], onDelete: SetNull)
+
+  type   VectorOperationType
+  status ProcessingState     @default(QUEUED)
+
+  qdrantPointId String? @db.VarChar(191)
+  filter        Json?
+  payload       Json?
+
+  attemptCount Int     @default(0)
+  errorCode    String? @db.VarChar(128)
+  errorMessage String? @db.Text
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, organizationId, projectId])
+  @@index([qdrantCollectionId, status])
+  @@index([chunkEmbeddingId])
+  @@index([ingestionJobId])
+  @@index([qdrantPointId])
+  @@map("vector_index_operations")
+}
+
+/**
+ * ============================================================
+ * INGESTION, REPROCESSING, ATTEMPTS, AND HISTORY
+ * ============================================================
+ */
+
+model IngestionJob {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId  String  @db.Uuid
+  sourceId         String? @db.Uuid
+  fileId           String? @db.Uuid
+  parsedDocumentId String? @db.Uuid
+
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  source        Source?       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  file          DocumentFile? @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  type   IngestionJobType
+  status JobStatus        @default(PENDING)
+
+  /// Used to prevent duplicate BullMQ jobs for the same file/config/version.
+  idempotencyKey String @db.VarChar(255)
+
+  queueName String  @default("ingestion") @db.VarChar(128)
+  bullJobId String? @db.VarChar(191)
+
+  priority     Int @default(0)
+  attemptCount Int @default(0)
+  maxAttempts  Int @default(3)
+
+  parserProfileId   String? @db.Uuid
+  chunkingConfigId  String? @db.Uuid
+  embeddingConfigId String? @db.Uuid
+
+  embeddingConfig EmbeddingConfig? @relation(fields: [embeddingConfigId], references: [id], onDelete: SetNull)
+
+  reprocessingBatchId String?            @db.Uuid
+  reprocessingBatch   ReprocessingBatch? @relation(fields: [reprocessingBatchId], references: [id], onDelete: SetNull)
+
+  /// Request/correlation IDs come from upstream systems or API gateway logs.
+  requestId             String? @db.VarChar(191)
+  correlationId         String? @db.VarChar(191)
+  requestedByExternalId String? @db.VarChar(191)
+
+  totalFiles      Int?
+  processedFiles  Int?
+  totalChunks     Int?
+  processedChunks Int?
+  totalTokens     Int?
+
+  errorCode    String? @db.VarChar(128)
+  errorMessage String? @db.Text
+  errorDetails Json?
+
+  metadata Json?
+
+  queuedAt    DateTime  @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parsedDocuments  ParsedDocument[]
+  attempts         IngestionAttempt[]
+  vectorOperations VectorIndexOperation[]
+  processingEvents ProcessingEvent[]
+
+  @@unique([idempotencyKey])
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId, status])
+  @@index([sourceId, status])
+  @@index([fileId, status])
+  @@index([bullJobId])
+  @@index([queueName, status])
+  @@index([createdAt])
+  @@map("ingestion_jobs")
+}
+
+model IngestionAttempt {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  ingestionJobId String       @db.Uuid
+  ingestionJob   IngestionJob @relation(fields: [ingestionJobId], references: [id], onDelete: Cascade)
+
+  attemptNumber Int
+  status        AttemptStatus @default(STARTED)
+
+  workerId String? @db.VarChar(191)
+  hostname String? @db.VarChar(255)
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  durationMs Int?
+
+  errorCode    String? @db.VarChar(128)
+  errorMessage String? @db.Text
+  errorStack   String? @db.Text
+  errorDetails Json?
+
+  metrics Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ingestionJobId, attemptNumber])
+  @@index([tenantId, organizationId, projectId])
+  @@index([ingestionJobId, status])
+  @@index([workerId])
+  @@map("ingestion_attempts")
+}
+
+model ReprocessingBatch {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId String        @db.Uuid
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  type   ReprocessingType
+  reason ReprocessingReason
+  status JobStatus          @default(PENDING)
+
+  /// Scope can be knowledgeBase, source, file, collection, or a custom filtered set.
+  scope Json
+
+  fromEmbeddingConfigId String? @db.Uuid
+  toEmbeddingConfigId   String? @db.Uuid
+
+  fromEmbeddingConfig EmbeddingConfig? @relation("ReprocessFromEmbeddingConfig", fields: [fromEmbeddingConfigId], references: [id], onDelete: SetNull)
+  toEmbeddingConfig   EmbeddingConfig? @relation("ReprocessToEmbeddingConfig", fields: [toEmbeddingConfigId], references: [id], onDelete: SetNull)
+
+  totalItems     Int?
+  processedItems Int?
+  failedItems    Int?
+
+  errorCode    String? @db.VarChar(128)
+  errorMessage String? @db.Text
+  metadata     Json?
+
+  requestedByExternalId String? @db.VarChar(191)
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  ingestionJobs IngestionJob[]
+
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId, status])
+  @@index([type, reason])
+  @@index([createdAt])
+  @@map("reprocessing_batches")
+}
+
+model ProcessingEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId String? @db.Uuid
+  sourceId        String? @db.Uuid
+  fileId          String? @db.Uuid
+  ingestionJobId  String? @db.Uuid
+
+  source       Source?       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  file         DocumentFile? @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  ingestionJob IngestionJob? @relation(fields: [ingestionJobId], references: [id], onDelete: Cascade)
+
+  type  ProcessingEventType
+  state ProcessingState?
+
+  message String? @db.Text
+  details Json?
+
+  requestId     String? @db.VarChar(191)
+  correlationId String? @db.VarChar(191)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId])
+  @@index([sourceId])
+  @@index([fileId])
+  @@index([ingestionJobId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("processing_events")
+}
+
+/**
+ * ============================================================
+ * RETRIEVAL, QUERY LOGS, RERANKING, AND RESULT TRACKING
+ * ============================================================
+ */
+
+model RerankModel {
+  id String @id @default(uuid()) @db.Uuid
+
+  provider    EmbeddingProvider
+  modelName   String            @db.VarChar(255)
+  displayName String?           @db.VarChar(255)
+
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+
+  config Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profiles RetrievalProfile[]
+
+  @@unique([provider, modelName])
+  @@index([provider, isActive])
+  @@index([isDefault])
+  @@map("rerank_models")
+}
+
+model RetrievalProfile {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId String        @db.Uuid
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  name String @db.VarChar(255)
+
+  searchType RetrievalSearchType @default(VECTOR)
+
+  embeddingConfigId  String? @db.Uuid
+  qdrantCollectionId String? @db.Uuid
+  rerankModelId      String? @db.Uuid
+
+  embeddingConfig  EmbeddingConfig?  @relation(fields: [embeddingConfigId], references: [id], onDelete: SetNull)
+  qdrantCollection QdrantCollection? @relation(fields: [qdrantCollectionId], references: [id], onDelete: SetNull)
+  rerankModel      RerankModel?      @relation(fields: [rerankModelId], references: [id], onDelete: SetNull)
+
+  topK           Int    @default(10)
+  candidateK     Int    @default(50)
+  scoreThreshold Float?
+
+  /// Hybrid weights, filters, rerank settings, payload include/exclude, etc.
+  config Json?
+
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  queries RetrievalQuery[]
+
+  @@unique([tenantId, knowledgeBaseId, name])
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId, isDefault])
+  @@index([searchType])
+  @@map("retrieval_profiles")
+}
+
+model RetrievalQuery {
+  id String @id @default(uuid()) @db.Uuid
+
+  tenantId       String  @db.VarChar(128)
+  organizationId String? @db.VarChar(128)
+  projectId      String? @db.VarChar(128)
+
+  knowledgeBaseId String        @db.Uuid
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  retrievalProfileId String?           @db.Uuid
+  retrievalProfile   RetrievalProfile? @relation(fields: [retrievalProfileId], references: [id], onDelete: SetNull)
+
+  embeddingModelId String?         @db.Uuid
+  embeddingModel   EmbeddingModel? @relation(fields: [embeddingModelId], references: [id], onDelete: SetNull)
+
+  qdrantCollectionId String?           @db.Uuid
+  qdrantCollection   QdrantCollection? @relation(fields: [qdrantCollectionId], references: [id], onDelete: SetNull)
+
+  searchType RetrievalSearchType
+  status     RetrievalStatus     @default(SUCCESS)
+
+  /// Store the raw query only if your privacy policy allows it.
+  queryText String? @db.Text
+
+  /// Useful for deduped analytics without storing raw query text.
+  queryHash String? @db.VarChar(64)
+
+  filters        Json?
+  topK           Int
+  candidateK     Int?
+  scoreThreshold Float?
+
+  resultCount     Int  @default(0)
+  latencyMs       Int?
+  qdrantLatencyMs Int?
+  rerankLatencyMs Int?
+
+  requestId             String? @db.VarChar(191)
+  correlationId         String? @db.VarChar(191)
+  requestedByExternalId String? @db.VarChar(191)
+
+  errorCode    String? @db.VarChar(128)
+  errorMessage String? @db.Text
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  results RetrievalResult[]
+
+  @@index([tenantId, organizationId, projectId])
+  @@index([knowledgeBaseId, createdAt])
+  @@index([retrievalProfileId])
+  @@index([embeddingModelId])
+  @@index([qdrantCollectionId])
+  @@index([queryHash])
+  @@index([searchType, status])
+  @@index([createdAt])
+  @@map("retrieval_queries")
+}
+
+model RetrievalResult {
+  id String @id @default(uuid()) @db.Uuid
+
+  retrievalQueryId String         @db.Uuid
+  retrievalQuery   RetrievalQuery @relation(fields: [retrievalQueryId], references: [id], onDelete: Cascade)
+
+  chunkId          String? @db.Uuid
+  chunkEmbeddingId String? @db.Uuid
+
+  chunk          DocumentChunk?  @relation(fields: [chunkId], references: [id], onDelete: SetNull)
+  chunkEmbedding ChunkEmbedding? @relation(fields: [chunkEmbeddingId], references: [id], onDelete: SetNull)
+
+  qdrantPointId String? @db.VarChar(191)
+
+  rank         Int
+  score        Float?
+  vectorScore  Float?
+  keywordScore Float?
+  rerankScore  Float?
+
+  textPreview String? @db.Text
+  payload     Json?
+
+  createdAt DateTime @default(now())
+
+  @@unique([retrievalQueryId, rank])
+  @@index([retrievalQueryId])
+  @@index([chunkId])
+  @@index([chunkEmbeddingId])
+  @@index([qdrantPointId])
+  @@map("retrieval_results")
 }

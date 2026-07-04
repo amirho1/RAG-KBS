@@ -1,0 +1,1102 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table knowledge_bases {
+  id String [pk]
+  tenantId String [not null, note: 'External tenant boundary. RAG-KBS does not own auth, but it must still isolate data.']
+  organizationId String
+  projectId String
+  externalId String [note: 'Optional external ID from the calling platform.']
+  name String [not null]
+  slug String [not null]
+  description String
+  status KnowledgeBaseStatus [not null, default: 'ACTIVE']
+  metadata Json [note: 'Flexible metadata for caller-owned labels, domain context, or import settings.']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  sources sources [not null]
+  files document_files [not null]
+  tags knowledge_base_tags [not null]
+  ingestionJobs ingestion_jobs [not null]
+  retrievalLogs retrieval_queries [not null]
+  profiles retrieval_profiles [not null]
+  embeddingConfigs embedding_configs [not null]
+  reprocessingBatches reprocessing_batches [not null]
+  parsedDocuments parsed_documents [not null]
+  documentChunks document_chunks [not null]
+
+  indexes {
+    (tenantId, slug) [unique]
+    (tenantId, externalId) [unique]
+  }
+}
+
+Table sources {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String [not null]
+  knowledgeBase knowledge_bases [not null]
+  parentSourceId String
+  parentSource sources
+  childSources sources [not null]
+  externalId String
+  name String [not null]
+  slug String [not null]
+  description String
+  type SourceType [not null]
+  syncMode SourceSyncMode [not null, default: 'MANUAL']
+  status LifecycleStatus [not null, default: 'ACTIVE']
+  processingState ProcessingState [not null, default: 'NOT_STARTED']
+  uri String [note: 'For URL, sitemap, API docs, or connected source references.']
+  checksumSha256 String [note: 'Source-level checksum helps detect whether a remote source changed.']
+  contentHash String
+  lastIngestedAt DateTime
+  lastSyncedAt DateTime
+  metadata Json
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  files document_files [not null]
+  tags source_tags [not null]
+  parsedDocuments parsed_documents [not null]
+  chunks document_chunks [not null]
+  ingestionJobs ingestion_jobs [not null]
+  processingEvents processing_events [not null]
+
+  indexes {
+    (tenantId, knowledgeBaseId, slug) [unique]
+    (tenantId, knowledgeBaseId, externalId) [unique]
+  }
+}
+
+Table storage_objects {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  provider StorageProvider [not null]
+  bucket String
+  objectKey String [not null]
+  region String
+  endpoint String
+  versionId String [note: 'Optional version ID from S3-compatible storage.']
+  originalName String
+  mimeType String
+  extension String
+  sizeBytes BigInt [not null]
+  checksumSha256 String [not null, note: 'Binary checksum for duplicate prevention and safe reprocessing.']
+  etag String
+  metadata Json
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  files document_files [not null]
+
+  indexes {
+    (tenantId, provider, bucket, objectKey) [unique]
+  }
+}
+
+Table document_files {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String [not null]
+  knowledgeBase knowledge_bases [not null]
+  sourceId String [not null]
+  source sources [not null]
+  storageObjectId String [not null]
+  storageObject storage_objects [not null]
+  previousFileId String
+  previousFile document_files
+  nextVersions document_files [not null]
+  externalId String
+  originalName String [not null]
+  normalizedName String
+  logicalPath String
+  mimeType String [not null]
+  extension String
+  fileType DocumentFileType [not null, default: 'UNKNOWN']
+  sizeBytes BigInt [not null]
+  checksumSha256 String [not null, note: 'File binary checksum.']
+  contentHash String [note: 'Hash of normalized extracted content. This may be unknown until parsing.']
+  version Int [not null, default: 1]
+  status FileStatus [not null, default: 'UPLOADED']
+  processingState ProcessingState [not null, default: 'NOT_STARTED']
+  title String
+  description String
+  language String
+  uploadedAt DateTime [default: `now()`, not null]
+  lastIngestedAt DateTime
+  lastEmbeddedAt DateTime
+  metadata Json
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  tags file_tags [not null]
+  parsedDocuments parsed_documents [not null]
+  chunks document_chunks [not null]
+  ingestionJobs ingestion_jobs [not null]
+  processingEvents processing_events [not null]
+
+  indexes {
+    (tenantId, sourceId, checksumSha256) [unique]
+    (tenantId, sourceId, externalId) [unique]
+  }
+}
+
+Table tags {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  name String [not null]
+  normalizedName String [not null]
+  description String
+  color String
+  metadata Json
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  knowledgeBases knowledge_base_tags [not null]
+  sources source_tags [not null]
+  files file_tags [not null]
+
+  indexes {
+    (tenantId, normalizedName) [unique]
+  }
+}
+
+Table knowledge_base_tags {
+  knowledgeBaseId String [not null]
+  tagId String [not null]
+  knowledgeBase knowledge_bases [not null]
+  tag tags [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (knowledgeBaseId, tagId) [pk]
+  }
+}
+
+Table source_tags {
+  sourceId String [not null]
+  tagId String [not null]
+  source sources [not null]
+  tag tags [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (sourceId, tagId) [pk]
+  }
+}
+
+Table file_tags {
+  fileId String [not null]
+  tagId String [not null]
+  file document_files [not null]
+  tag tags [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (fileId, tagId) [pk]
+  }
+}
+
+Table parser_profiles {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  name String [not null]
+  parserName String [not null]
+  parserVersion String [not null]
+  config Json [note: 'Supported file types and parser options live here.']
+  isDefault Boolean [not null, default: false]
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  parsedDocuments parsed_documents [not null]
+
+  indexes {
+    (tenantId, name) [unique]
+  }
+}
+
+Table parsed_documents {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String [not null]
+  sourceId String [not null]
+  fileId String [not null]
+  parserProfileId String
+  ingestionJobId String
+  knowledgeBase knowledge_bases [not null]
+  source sources [not null]
+  file document_files [not null]
+  parserProfile parser_profiles
+  ingestionJob ingestion_jobs
+  status ParserStatus [not null, default: 'PENDING']
+  parserName String [not null]
+  parserVersion String [not null]
+  title String
+  language String
+  extractedText String [note: 'Store extracted text if you want PostgreSQL to keep the parse result.For very large files, you can store only textPreview and keep full text in object storage.']
+  textPreview String
+  charCount Int
+  tokenCount Int
+  pageCount Int
+  contentHash String [note: 'Hash of normalized extracted text. Used to skip unnecessary rechunking.']
+  structure Json [note: 'Parser output structure: pages, headings, tables, rows, endpoint paths, etc.']
+  errorCode String
+  errorMessage String
+  startedAt DateTime
+  finishedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  chunks document_chunks [not null]
+}
+
+Table chunking_configs {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  name String [not null]
+  strategy String [not null, note: 'Examples: recursive_text, markdown_heading, page_aware, table_aware, openapi_endpoint.']
+  chunkSize Int [not null]
+  chunkOverlap Int [not null, default: 0]
+  tokenizer String [note: 'Tokenizer name matters because token counts differ by model.']
+  preserveHeadings Boolean [not null, default: true]
+  preserveTables Boolean [not null, default: false]
+  config Json
+  isDefault Boolean [not null, default: false]
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  chunks document_chunks [not null]
+  embeddingConfigs embedding_configs [not null]
+
+  indexes {
+    (tenantId, name) [unique]
+  }
+}
+
+Table document_chunks {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String [not null]
+  sourceId String [not null]
+  fileId String [not null]
+  parsedDocumentId String [not null]
+  chunkingConfigId String
+  knowledgeBase knowledge_bases [not null]
+  source sources [not null]
+  file document_files [not null]
+  parsedDocument parsed_documents [not null]
+  chunkingConfig chunking_configs
+  chunkIndex Int [not null]
+  contentHash String [not null, note: 'Deterministic hash of normalized chunk text. Helps skip duplicate embeddings.']
+  text String
+  textPreview String [not null]
+  tokenCount Int
+  charCount Int
+  startChar Int
+  endChar Int
+  pageStart Int
+  pageEnd Int
+  headingPath Json [note: 'For section-aware retrieval: headings, table name, endpoint path, sheet name, JSON path, etc.']
+  metadata Json
+  status ChunkStatus [not null, default: 'NEEDS_EMBEDDING']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  embeddings chunk_embeddings [not null]
+  keywordIndex chunk_keyword_indexes
+  retrievalResults retrieval_results [not null]
+
+  indexes {
+    (parsedDocumentId, chunkIndex) [unique]
+  }
+}
+
+Table chunk_keyword_indexes {
+  chunkId String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String [not null]
+  sourceId String [not null]
+  fileId String [not null]
+  chunk document_chunks [not null]
+  searchText String [not null, note: 'Plain search text. Add a raw PostgreSQL migration for GIN/tsvector if you use Postgres keyword search.']
+  language String
+  contentHash String [not null]
+  status ProcessingState [not null, default: 'COMPLETED']
+  indexedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table embedding_models {
+  id String [pk]
+  provider EmbeddingProvider [not null]
+  modelName String [not null]
+  displayName String
+  dimension Int [not null]
+  distanceMetric DistanceMetric [not null, default: 'COSINE']
+  maxInputTokens Int
+  tokenizer String
+  isActive Boolean [not null, default: true]
+  isDefault Boolean [not null, default: false]
+  metadata Json [note: 'Provider-specific settings, model family, pricing hints, local path, etc.']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  configs embedding_configs [not null]
+  collections qdrant_collections [not null]
+  embeddings chunk_embeddings [not null]
+  retrievalQueries retrieval_queries [not null]
+
+  indexes {
+    (provider, modelName, dimension) [unique]
+  }
+}
+
+Table embedding_configs {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String
+  knowledgeBase knowledge_bases
+  embeddingModelId String [not null]
+  embeddingModel embedding_models [not null]
+  chunkingConfigId String
+  chunkingConfig chunking_configs
+  name String [not null]
+  config Json [note: 'Normalization, batching, dimensions override, provider routing, etc.']
+  isActive Boolean [not null, default: true]
+  isDefault Boolean [not null, default: false]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  collections qdrant_collections [not null]
+  embeddings chunk_embeddings [not null]
+  ingestionJobs ingestion_jobs [not null]
+  reprocessingFrom reprocessing_batches [not null]
+  reprocessingTo reprocessing_batches [not null]
+  retrievalProfiles retrieval_profiles [not null]
+
+  indexes {
+    (tenantId, name) [unique]
+  }
+}
+
+Table qdrant_collections {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  embeddingModelId String [not null]
+  embeddingModel embedding_models [not null]
+  embeddingConfigId String
+  embeddingConfig embedding_configs
+  name String [not null, note: 'Actual Qdrant collection name.']
+  alias String [note: 'Optional alias used by the API so reads can switch collections safely.']
+  vectorSize Int [not null]
+  distanceMetric DistanceMetric [not null, default: 'COSINE']
+  status QdrantCollectionStatus [not null, default: 'CREATING']
+  isDefaultRead Boolean [not null, default: false]
+  isDefaultWrite Boolean [not null, default: false]
+  migratedFromId String
+  migratedFrom qdrant_collections
+  migrations qdrant_collections [not null]
+  config Json [note: 'Qdrant shard count, replication factor, HNSW config, quantization config, etc.']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  embeddings chunk_embeddings [not null]
+  vectorOperations vector_index_operations [not null]
+  retrievalProfiles retrieval_profiles [not null]
+  retrievalQueries retrieval_queries [not null]
+
+  indexes {
+    (tenantId, name) [unique]
+    (tenantId, alias) [unique]
+  }
+}
+
+Table chunk_embeddings {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String [not null]
+  sourceId String [not null]
+  fileId String [not null]
+  chunkId String [not null]
+  embeddingModelId String [not null]
+  embeddingConfigId String [not null]
+  qdrantCollectionId String [not null]
+  chunk document_chunks [not null]
+  embeddingModel embedding_models [not null]
+  embeddingConfig embedding_configs [not null]
+  qdrantCollection qdrant_collections [not null]
+  qdrantPointId String [not null, note: 'Deterministic Qdrant point ID. Usually UUID generated from collection + chunk + config.']
+  status EmbeddingStatus [not null, default: 'PENDING']
+  vectorDimension Int [not null]
+  embeddedContentHash String [not null, note: 'Hash of the text used for embedding. If chunk text changes, embedding becomes stale.']
+  payloadHash String [note: 'Hash of the Qdrant payload to detect whether payload re-sync is needed.']
+  embeddedAt DateTime
+  indexedAt DateTime
+  lastSyncedAt DateTime
+  errorCode String
+  errorMessage String
+  metadata Json
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  deletedAt DateTime
+  vectorOperations vector_index_operations [not null]
+  retrievalResults retrieval_results [not null]
+
+  indexes {
+    (qdrantCollectionId, qdrantPointId) [unique]
+    (chunkId, embeddingConfigId) [unique]
+  }
+}
+
+Table vector_index_operations {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  qdrantCollectionId String [not null]
+  chunkEmbeddingId String
+  ingestionJobId String
+  qdrantCollection qdrant_collections [not null]
+  chunkEmbedding chunk_embeddings
+  ingestionJob ingestion_jobs
+  type VectorOperationType [not null]
+  status ProcessingState [not null, default: 'QUEUED']
+  qdrantPointId String
+  filter Json
+  payload Json
+  attemptCount Int [not null, default: 0]
+  errorCode String
+  errorMessage String
+  startedAt DateTime
+  finishedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table ingestion_jobs {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String [not null]
+  sourceId String
+  fileId String
+  parsedDocumentId String
+  knowledgeBase knowledge_bases [not null]
+  source sources
+  file document_files
+  type IngestionJobType [not null]
+  status JobStatus [not null, default: 'PENDING']
+  idempotencyKey String [unique, not null, note: 'Used to prevent duplicate BullMQ jobs for the same file/config/version.']
+  queueName String [not null, default: 'ingestion']
+  bullJobId String
+  priority Int [not null, default: 0]
+  attemptCount Int [not null, default: 0]
+  maxAttempts Int [not null, default: 3]
+  parserProfileId String
+  chunkingConfigId String
+  embeddingConfigId String
+  embeddingConfig embedding_configs
+  reprocessingBatchId String
+  reprocessingBatch reprocessing_batches
+  requestId String [note: 'Request/correlation IDs come from upstream systems or API gateway logs.']
+  correlationId String
+  requestedByExternalId String
+  totalFiles Int
+  processedFiles Int
+  totalChunks Int
+  processedChunks Int
+  totalTokens Int
+  errorCode String
+  errorMessage String
+  errorDetails Json
+  metadata Json
+  queuedAt DateTime [default: `now()`, not null]
+  startedAt DateTime
+  finishedAt DateTime
+  cancelledAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  parsedDocuments parsed_documents [not null]
+  attempts ingestion_attempts [not null]
+  vectorOperations vector_index_operations [not null]
+  processingEvents processing_events [not null]
+}
+
+Table ingestion_attempts {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  ingestionJobId String [not null]
+  ingestionJob ingestion_jobs [not null]
+  attemptNumber Int [not null]
+  status AttemptStatus [not null, default: 'STARTED']
+  workerId String
+  hostname String
+  startedAt DateTime [default: `now()`, not null]
+  finishedAt DateTime
+  durationMs Int
+  errorCode String
+  errorMessage String
+  errorStack String
+  errorDetails Json
+  metrics Json
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+
+  indexes {
+    (ingestionJobId, attemptNumber) [unique]
+  }
+}
+
+Table reprocessing_batches {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String [not null]
+  knowledgeBase knowledge_bases [not null]
+  type ReprocessingType [not null]
+  reason ReprocessingReason [not null]
+  status JobStatus [not null, default: 'PENDING']
+  scope Json [not null, note: 'Scope can be knowledgeBase, source, file, collection, or a custom filtered set.']
+  fromEmbeddingConfigId String
+  toEmbeddingConfigId String
+  fromEmbeddingConfig embedding_configs
+  toEmbeddingConfig embedding_configs
+  totalItems Int
+  processedItems Int
+  failedItems Int
+  errorCode String
+  errorMessage String
+  metadata Json
+  requestedByExternalId String
+  startedAt DateTime
+  finishedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  ingestionJobs ingestion_jobs [not null]
+}
+
+Table processing_events {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String
+  sourceId String
+  fileId String
+  ingestionJobId String
+  source sources
+  file document_files
+  ingestionJob ingestion_jobs
+  type ProcessingEventType [not null]
+  state ProcessingState
+  message String
+  details Json
+  requestId String
+  correlationId String
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table rerank_models {
+  id String [pk]
+  provider EmbeddingProvider [not null]
+  modelName String [not null]
+  displayName String
+  isActive Boolean [not null, default: true]
+  isDefault Boolean [not null, default: false]
+  config Json
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  profiles retrieval_profiles [not null]
+
+  indexes {
+    (provider, modelName) [unique]
+  }
+}
+
+Table retrieval_profiles {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String [not null]
+  knowledgeBase knowledge_bases [not null]
+  name String [not null]
+  searchType RetrievalSearchType [not null, default: 'VECTOR']
+  embeddingConfigId String
+  qdrantCollectionId String
+  rerankModelId String
+  embeddingConfig embedding_configs
+  qdrantCollection qdrant_collections
+  rerankModel rerank_models
+  topK Int [not null, default: 10]
+  candidateK Int [not null, default: 50]
+  scoreThreshold Float
+  config Json [note: 'Hybrid weights, filters, rerank settings, payload include/exclude, etc.']
+  isDefault Boolean [not null, default: false]
+  isActive Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  queries retrieval_queries [not null]
+
+  indexes {
+    (tenantId, knowledgeBaseId, name) [unique]
+  }
+}
+
+Table retrieval_queries {
+  id String [pk]
+  tenantId String [not null]
+  organizationId String
+  projectId String
+  knowledgeBaseId String [not null]
+  knowledgeBase knowledge_bases [not null]
+  retrievalProfileId String
+  retrievalProfile retrieval_profiles
+  embeddingModelId String
+  embeddingModel embedding_models
+  qdrantCollectionId String
+  qdrantCollection qdrant_collections
+  searchType RetrievalSearchType [not null]
+  status RetrievalStatus [not null, default: 'SUCCESS']
+  queryText String [note: 'Store the raw query only if your privacy policy allows it.']
+  queryHash String [note: 'Useful for deduped analytics without storing raw query text.']
+  filters Json
+  topK Int [not null]
+  candidateK Int
+  scoreThreshold Float
+  resultCount Int [not null, default: 0]
+  latencyMs Int
+  qdrantLatencyMs Int
+  rerankLatencyMs Int
+  requestId String
+  correlationId String
+  requestedByExternalId String
+  errorCode String
+  errorMessage String
+  metadata Json
+  createdAt DateTime [default: `now()`, not null]
+  results retrieval_results [not null]
+}
+
+Table retrieval_results {
+  id String [pk]
+  retrievalQueryId String [not null]
+  retrievalQuery retrieval_queries [not null]
+  chunkId String
+  chunkEmbeddingId String
+  chunk document_chunks
+  chunkEmbedding chunk_embeddings
+  qdrantPointId String
+  rank Int [not null]
+  score Float
+  vectorScore Float
+  keywordScore Float
+  rerankScore Float
+  textPreview String
+  payload Json
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (retrievalQueryId, rank) [unique]
+  }
+}
+
+Enum LifecycleStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+  DELETING
+  DELETED
+}
+
+Enum ProcessingState {
+  NOT_STARTED
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+  SKIPPED
+}
+
+Enum KnowledgeBaseStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+  DELETING
+  DELETED
+}
+
+Enum SourceType {
+  UPLOAD
+  URL
+  WEB_PAGE
+  SITEMAP
+  API_DOCUMENTATION
+  OPENAPI
+  SWAGGER
+  MARKDOWN
+  TEXT
+  POLICY
+  MANUAL
+  FAQ
+  DATABASE_EXPORT
+  CUSTOM
+}
+
+Enum SourceSyncMode {
+  MANUAL
+  SCHEDULED
+  WEBHOOK
+  API_PUSH
+}
+
+Enum DocumentFileType {
+  PDF
+  DOCX
+  TXT
+  MARKDOWN
+  HTML
+  CSV
+  XLSX
+  JSON
+  XML
+  IMAGE
+  AUDIO
+  VIDEO
+  OPENAPI
+  UNKNOWN
+}
+
+Enum FileStatus {
+  UPLOADED
+  STORED
+  WAITING_FOR_INGESTION
+  INGESTING
+  INGESTED
+  PARTIALLY_INGESTED
+  FAILED
+  NEEDS_REINGESTION
+  NEEDS_REEMBEDDING
+  DELETING
+  DELETED
+}
+
+Enum StorageProvider {
+  LOCAL
+  S3
+  MINIO
+  GCS
+  AZURE_BLOB
+  CUSTOM
+}
+
+Enum IngestionJobType {
+  INGEST_FILE
+  INGEST_SOURCE
+  REINGEST_FILE
+  REINGEST_SOURCE
+  REEMBED_FILE
+  REEMBED_SOURCE
+  DELETE_FILE_VECTORS
+  DELETE_SOURCE_VECTORS
+  REBUILD_KEYWORD_INDEX
+  MIGRATE_COLLECTION
+}
+
+Enum JobStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  COMPLETED
+  PARTIALLY_COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+  SKIPPED
+}
+
+Enum AttemptStatus {
+  STARTED
+  COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+Enum ParserStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+Enum ChunkStatus {
+  ACTIVE
+  SUPERSEDED
+  NEEDS_EMBEDDING
+  EMBEDDED
+  FAILED
+  DELETING
+  DELETED
+}
+
+Enum EmbeddingProvider {
+  OPENAI
+  AZURE_OPENAI
+  ANTHROPIC
+  GOOGLE
+  COHERE
+  VOYAGE
+  MISTRAL
+  HUGGINGFACE
+  OLLAMA
+  LOCAL
+  CUSTOM
+}
+
+Enum DistanceMetric {
+  COSINE
+  DOT
+  EUCLID
+  MANHATTAN
+}
+
+Enum QdrantCollectionStatus {
+  ACTIVE
+  CREATING
+  MIGRATING
+  READ_ONLY
+  DEPRECATED
+  DELETING
+  DELETED
+  FAILED
+}
+
+Enum EmbeddingStatus {
+  PENDING
+  EMBEDDING
+  INDEXED
+  FAILED
+  SUPERSEDED
+  DELETING
+  DELETED
+}
+
+Enum VectorOperationType {
+  UPSERT
+  UPDATE_PAYLOAD
+  DELETE_POINT
+  DELETE_BY_FILTER
+  CREATE_COLLECTION
+  MIGRATE_COLLECTION
+  VERIFY_COLLECTION
+}
+
+Enum RetrievalSearchType {
+  VECTOR
+  KEYWORD
+  HYBRID
+  SIMILAR_CHUNKS
+}
+
+Enum RetrievalStatus {
+  SUCCESS
+  PARTIAL_SUCCESS
+  FAILED
+}
+
+Enum ReprocessingType {
+  REINGEST
+  REEMBED
+  RECHUNK
+  REPARSE
+  COLLECTION_MIGRATION
+  KEYWORD_REINDEX
+}
+
+Enum ReprocessingReason {
+  MANUAL
+  SOURCE_CHANGED
+  FILE_CHANGED
+  PARSER_CHANGED
+  CHUNKING_CHANGED
+  EMBEDDING_MODEL_CHANGED
+  EMBEDDING_CONFIG_CHANGED
+  QDRANT_COLLECTION_CHANGED
+  FAILURE_RECOVERY
+  SCHEDULED_REFRESH
+}
+
+Enum ProcessingEventType {
+  SOURCE_CREATED
+  SOURCE_UPDATED
+  FILE_UPLOADED
+  FILE_STORED
+  INGESTION_QUEUED
+  INGESTION_STARTED
+  PARSING_STARTED
+  PARSING_COMPLETED
+  CHUNKING_STARTED
+  CHUNKING_COMPLETED
+  EMBEDDING_STARTED
+  EMBEDDING_COMPLETED
+  VECTOR_INDEXING_STARTED
+  VECTOR_INDEXING_COMPLETED
+  RETRIEVAL_EXECUTED
+  REPROCESSING_STARTED
+  REPROCESSING_COMPLETED
+  ERROR_OCCURRED
+  SOFT_DELETED
+  RESTORED
+}
+
+Ref: sources.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
+
+Ref: sources.parentSourceId - sources.id [delete: Set Null]
+
+Ref: document_files.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
+
+Ref: document_files.sourceId > sources.id [delete: Cascade]
+
+Ref: document_files.storageObjectId > storage_objects.id [delete: Restrict]
+
+Ref: document_files.previousFileId - document_files.id [delete: Set Null]
+
+Ref: knowledge_base_tags.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
+
+Ref: knowledge_base_tags.tagId > tags.id [delete: Cascade]
+
+Ref: source_tags.sourceId > sources.id [delete: Cascade]
+
+Ref: source_tags.tagId > tags.id [delete: Cascade]
+
+Ref: file_tags.fileId > document_files.id [delete: Cascade]
+
+Ref: file_tags.tagId > tags.id [delete: Cascade]
+
+Ref: parsed_documents.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
+
+Ref: parsed_documents.sourceId > sources.id [delete: Cascade]
+
+Ref: parsed_documents.fileId > document_files.id [delete: Cascade]
+
+Ref: parsed_documents.parserProfileId > parser_profiles.id [delete: Set Null]
+
+Ref: parsed_documents.ingestionJobId > ingestion_jobs.id [delete: Set Null]
+
+Ref: document_chunks.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
+
+Ref: document_chunks.sourceId > sources.id [delete: Cascade]
+
+Ref: document_chunks.fileId > document_files.id [delete: Cascade]
+
+Ref: document_chunks.parsedDocumentId > parsed_documents.id [delete: Cascade]
+
+Ref: document_chunks.chunkingConfigId > chunking_configs.id [delete: Set Null]
+
+Ref: chunk_keyword_indexes.chunkId - document_chunks.id [delete: Cascade]
+
+Ref: embedding_configs.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
+
+Ref: embedding_configs.embeddingModelId > embedding_models.id [delete: Restrict]
+
+Ref: embedding_configs.chunkingConfigId > chunking_configs.id [delete: Set Null]
+
+Ref: qdrant_collections.embeddingModelId > embedding_models.id [delete: Restrict]
+
+Ref: qdrant_collections.embeddingConfigId > embedding_configs.id [delete: Set Null]
+
+Ref: qdrant_collections.migratedFromId - qdrant_collections.id [delete: Set Null]
+
+Ref: chunk_embeddings.chunkId > document_chunks.id [delete: Cascade]
+
+Ref: chunk_embeddings.embeddingModelId > embedding_models.id [delete: Restrict]
+
+Ref: chunk_embeddings.embeddingConfigId > embedding_configs.id [delete: Restrict]
+
+Ref: chunk_embeddings.qdrantCollectionId > qdrant_collections.id [delete: Restrict]
+
+Ref: vector_index_operations.qdrantCollectionId > qdrant_collections.id [delete: Cascade]
+
+Ref: vector_index_operations.chunkEmbeddingId > chunk_embeddings.id [delete: Set Null]
+
+Ref: vector_index_operations.ingestionJobId > ingestion_jobs.id [delete: Set Null]
+
+Ref: ingestion_jobs.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
+
+Ref: ingestion_jobs.sourceId > sources.id [delete: Cascade]
+
+Ref: ingestion_jobs.fileId > document_files.id [delete: Cascade]
+
+Ref: ingestion_jobs.embeddingConfigId > embedding_configs.id [delete: Set Null]
+
+Ref: ingestion_jobs.reprocessingBatchId > reprocessing_batches.id [delete: Set Null]
+
+Ref: ingestion_attempts.ingestionJobId > ingestion_jobs.id [delete: Cascade]
+
+Ref: reprocessing_batches.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
+
+Ref: reprocessing_batches.fromEmbeddingConfigId > embedding_configs.id [delete: Set Null]
+
+Ref: reprocessing_batches.toEmbeddingConfigId > embedding_configs.id [delete: Set Null]
+
+Ref: processing_events.sourceId > sources.id [delete: Cascade]
+
+Ref: processing_events.fileId > document_files.id [delete: Cascade]
+
+Ref: processing_events.ingestionJobId > ingestion_jobs.id [delete: Cascade]
+
+Ref: retrieval_profiles.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
+
+Ref: retrieval_profiles.embeddingConfigId > embedding_configs.id [delete: Set Null]
+
+Ref: retrieval_profiles.qdrantCollectionId > qdrant_collections.id [delete: Set Null]
+
+Ref: retrieval_profiles.rerankModelId > rerank_models.id [delete: Set Null]
+
+Ref: retrieval_queries.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
+
+Ref: retrieval_queries.retrievalProfileId > retrieval_profiles.id [delete: Set Null]
+
+Ref: retrieval_queries.embeddingModelId > embedding_models.id [delete: Set Null]
+
+Ref: retrieval_queries.qdrantCollectionId > qdrant_collections.id [delete: Set Null]
+
+Ref: retrieval_results.retrievalQueryId > retrieval_queries.id [delete: Cascade]
+
+Ref: retrieval_results.chunkId > document_chunks.id [delete: Set Null]
+
+Ref: retrieval_results.chunkEmbeddingId > chunk_embeddings.id [delete: Set Null]
