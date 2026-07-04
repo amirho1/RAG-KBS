@@ -49,6 +49,13 @@ export const envSchema = z
       .string()
       .optional()
       .default("/tmp/rag-kbs-worker.ready"),
+    SERVICE_NAME: z.string().optional().default("rag-kbs-api"),
+    APP_VERSION: z.string().optional().default(""),
+    POSTGRES_HEALTH_TIMEOUT_MS: positiveIntSchema.optional().default(2000),
+    REDIS_HEALTH_TIMEOUT_MS: positiveIntSchema.optional().default(2000),
+    QDRANT_HEALTH_TIMEOUT_MS: positiveIntSchema.optional().default(3000),
+    STORAGE_HEALTH_TIMEOUT_MS: positiveIntSchema.optional().default(3000),
+    QUEUE_HEALTH_TIMEOUT_MS: positiveIntSchema.optional().default(2000),
   })
   .superRefine((data, context) => {
     if (

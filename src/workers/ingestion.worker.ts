@@ -3,9 +3,11 @@ import { ConfigType } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "../app.module.js";
 import appConfig from "../config/app.config.js";
+import { HealthService } from "../modules/health/health.service.js";
 import { writeWorkerReadyFile } from "./worker-ready-file.js";
 
 const logger = new Logger("IngestionWorker");
+const readinessRetryDelayMs = 5_000;
 
 /**
  * Start the ingestion worker process.
@@ -20,8 +22,47 @@ async function bootstrapIngestionWorker(): Promise<void> {
   app.enableShutdownHooks();
   registerShutdownHandlers(app, keepAliveTimer);
 
-  await writeWorkerReadyFile(workerReadyFile);
+  await waitForWorkerReadiness(app, workerReadyFile);
   logger.log("Ingestion worker started and is waiting for jobs.");
+}
+
+/**
+ * Wait until all critical dependencies are healthy, then write the readiness file.
+ * @param app - The Nest application context.
+ * @param workerReadyFile - Path to the worker readiness file.
+ */
+async function waitForWorkerReadiness(
+  app: INestApplicationContext,
+  workerReadyFile: string
+): Promise<void> {
+  const healthService = app.get(HealthService);
+
+  while (true) {
+    const readiness = await healthService.checkReadiness();
+
+    if (readiness.status === "ok") {
+      await writeWorkerReadyFile(workerReadyFile);
+      logger.log("Worker readiness verified and ready file written.");
+      return;
+    }
+
+    logger.error({
+      message: "Worker readiness check failed",
+      dependencies: readiness.dependencies,
+    });
+
+    await delay(readinessRetryDelayMs);
+  }
+}
+
+/**
+ * Delay execution for the specified duration.
+ * @param delayMs - Delay duration in milliseconds.
+ */
+function delay(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
 }
 
 /**

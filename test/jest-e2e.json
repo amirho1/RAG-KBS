@@ -5,6 +5,7 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "moduleNameMapper": {
+    "^.+generated/prisma/client(\\.js)?$": "<rootDir>/mocks/prisma-client.mock.ts",
     "^(\\.{1,2}/.*)\\.js$": "$1"
   },
   "transform": {

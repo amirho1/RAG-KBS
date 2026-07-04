@@ -248,7 +248,8 @@ Table parsed_documents {
   parserVersion String [not null]
   title String
   language String
-  extractedText String [note: 'Store extracted text if you want PostgreSQL to keep the parse result.For very large files, you can store only textPreview and keep full text in object storage.']
+  extractedText String [note: 'Store extracted text if you want PostgreSQL to keep the parse result.
+For very large files, you can store only textPreview and keep full text in object storage.']
   textPreview String
   charCount Int
   tokenCount Int

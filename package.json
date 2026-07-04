@@ -7,7 +7,7 @@
   "license": "private",
   "packageManager": "pnpm@11.8.0",
   "scripts": {
-    "build": "nest build",
+    "build": "prisma generate && nest build",
     "start": "nest start",
     "start:dev": "nest start --watch --preserveWatchOutput --no-shell",
     "start:debug": "nest start --debug --watch --preserveWatchOutput --no-shell",
@@ -23,6 +23,10 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "postinstall": "prisma generate",
     "db:generate": "pnpm prisma:generate",
     "db:migrate:dev": "pnpm prisma:migrate:dev",
     "db:migrate:prod": "pnpm prisma:migrate:deploy",
@@ -33,6 +37,7 @@
     "docker:prod:migrate": "docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm migrate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1079.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
@@ -40,8 +45,10 @@
     "@nestjs/swagger": "^11.4.5",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "bullmq": "^5.79.2",
     "dotenv": "^17.4.2",
     "fastify": "^5.9.0",
+    "ioredis": "^5.11.1",
     "nestjs-zod": "^5.4.0",
     "pg": "^8.22.0",
     "prisma-dbml-generator": "^0.12.0",
@@ -84,6 +91,7 @@
       "ts"
     ],
     "moduleNameMapper": {
+      "^.+generated/prisma/client(\\.js)?$": "<rootDir>/../test/mocks/prisma-client.mock.ts",
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "rootDir": "src",

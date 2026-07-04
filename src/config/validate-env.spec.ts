@@ -99,4 +99,15 @@ describe("validateEnv", () => {
 
     expect(env.REDIS_URL).toBeUndefined();
   });
+
+  it("should apply default health timeout values", () => {
+    const env = validateEnv({ ...baseValidEnv });
+
+    expect(env.POSTGRES_HEALTH_TIMEOUT_MS).toBe(2000);
+    expect(env.REDIS_HEALTH_TIMEOUT_MS).toBe(2000);
+    expect(env.QDRANT_HEALTH_TIMEOUT_MS).toBe(3000);
+    expect(env.STORAGE_HEALTH_TIMEOUT_MS).toBe(3000);
+    expect(env.QUEUE_HEALTH_TIMEOUT_MS).toBe(2000);
+    expect(env.SERVICE_NAME).toBe("rag-kbs-api");
+  });
 });

@@ -9,5 +9,6 @@ ignoredBuiltDependencies:
 allowBuilds:
   "@prisma/engines": true
   "@scarf/scarf": false
+  msgpackr-extract: true
   prisma: true
   unrs-resolver: true

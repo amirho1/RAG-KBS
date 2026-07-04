@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import appConfig from "./app.config.js";
 import databaseConfig from "./database.config.js";
 import embeddingConfig from "./embedding.config.js";
+import healthConfig from "./health.config.js";
 import ingestionConfig from "./ingestion.config.js";
 import qdrantConfig from "./qdrant.config.js";
 import redisConfig from "./redis.config.js";
@@ -33,6 +34,7 @@ import { validateEnv } from "./validate-env.js";
         qdrantConfig,
         storageConfig,
         embeddingConfig,
+        healthConfig,
         ingestionConfig,
       ],
     }),

@@ -30,6 +30,13 @@ const testEnv = {
   BULLMQ_QUEUE_PREFIX: "rag-kbs-test",
   LOG_LEVEL: "error",
   WORKER_READY_FILE: "/tmp/rag-kbs-worker.ready",
+  SERVICE_NAME: "rag-kbs-api",
+  APP_VERSION: "",
+  POSTGRES_HEALTH_TIMEOUT_MS: "2000",
+  REDIS_HEALTH_TIMEOUT_MS: "2000",
+  QDRANT_HEALTH_TIMEOUT_MS: "3000",
+  STORAGE_HEALTH_TIMEOUT_MS: "3000",
+  QUEUE_HEALTH_TIMEOUT_MS: "2000",
 } as const;
 
 for (const [key, value] of Object.entries(testEnv)) {
