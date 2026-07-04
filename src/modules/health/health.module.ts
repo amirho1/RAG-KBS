@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
-import { PrismaModule } from "../../common/prisma/prisma.module.js";
 import { RedisModule } from "../../common/redis/redis.module.js";
+import { PrismaModule } from "../database/prisma.module.js";
 import { HealthController } from "./health.controller.js";
 import { HealthService } from "./health.service.js";
 import { PostgresHealthIndicator } from "./indicators/postgres.health-indicator.js";

@@ -6,6 +6,7 @@ const testEnv = {
   PORT: "3000",
   DATABASE_URL:
     "postgresql://rag_kbs:rag_kbs_password@localhost:5432/rag_kbs_test",
+  DEFAULT_TENANT_ID: "default",
   REDIS_HOST: "localhost",
   REDIS_PORT: "6379",
   REDIS_PASSWORD: "",

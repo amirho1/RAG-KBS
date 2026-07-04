@@ -28,6 +28,7 @@ Table knowledge_bases {
   documentChunks document_chunks [not null]
 
   indexes {
+    (tenantId, name) [unique]
     (tenantId, slug) [unique]
     (tenantId, externalId) [unique]
   }
@@ -68,6 +69,7 @@ Table sources {
   processingEvents processing_events [not null]
 
   indexes {
+    (tenantId, knowledgeBaseId, name) [unique]
     (tenantId, knowledgeBaseId, slug) [unique]
     (tenantId, knowledgeBaseId, externalId) [unique]
   }

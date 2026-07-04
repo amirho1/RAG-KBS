@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { ConfigType } from "@nestjs/config";
 import healthConfig from "../../../config/health.config.js";
-import { PrismaService } from "../../../common/prisma/prisma.service.js";
+import { PrismaService } from "../../database/prisma.service.js";
 import type { DependencyHealthResult } from "../types/health.types.js";
 import {
   buildErrorDependencyResult,

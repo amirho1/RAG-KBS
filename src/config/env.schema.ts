@@ -14,6 +14,7 @@ export const envSchema = z
     NODE_ENV: nodeEnvSchema,
     PORT: positiveIntSchema,
     DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+    DEFAULT_TENANT_ID: z.string().optional().default("default"),
     REDIS_HOST: z.string().min(1, "REDIS_HOST is required"),
     REDIS_PORT: positiveIntSchema,
     REDIS_PASSWORD: z.string().optional().default(""),

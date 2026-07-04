@@ -100,4 +100,4 @@ COPY docker ./docker
 RUN chmod +x docker/*.sh && pnpm exec prisma generate
 
 ENTRYPOINT ["docker/wait-for-services.sh"]
-CMD ["pnpm", "prisma:migrate:deploy"]
+CMD ["pnpm", "db:migrate:deploy"]

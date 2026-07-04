@@ -310,10 +310,12 @@ model KnowledgeBase {
   parsedDocuments     ParsedDocument[]
   documentChunks      DocumentChunk[]
 
+  @@unique([tenantId, name])
   @@unique([tenantId, slug])
   @@unique([tenantId, externalId])
   @@index([tenantId, organizationId, projectId])
   @@index([tenantId, status])
+  @@index([createdAt])
   @@index([deletedAt])
   @@map("knowledge_bases")
 }
@@ -366,6 +368,7 @@ model Source {
   ingestionJobs    IngestionJob[]
   processingEvents ProcessingEvent[]
 
+  @@unique([tenantId, knowledgeBaseId, name])
   @@unique([tenantId, knowledgeBaseId, slug])
   @@unique([tenantId, knowledgeBaseId, externalId])
   @@index([tenantId, organizationId, projectId])
@@ -373,6 +376,7 @@ model Source {
   @@index([tenantId, type])
   @@index([checksumSha256])
   @@index([contentHash])
+  @@index([createdAt])
   @@index([deletedAt])
   @@map("sources")
 }
@@ -419,6 +423,7 @@ model StorageObject {
   @@unique([tenantId, provider, bucket, objectKey])
   @@index([tenantId, checksumSha256])
   @@index([tenantId, provider])
+  @@index([createdAt])
   @@index([deletedAt])
   @@map("storage_objects")
 }
@@ -492,6 +497,7 @@ model DocumentFile {
   @@index([storageObjectId])
   @@index([checksumSha256])
   @@index([contentHash])
+  @@index([createdAt])
   @@index([deletedAt])
   @@map("document_files")
 }
@@ -526,6 +532,7 @@ model Tag {
 
   @@unique([tenantId, normalizedName])
   @@index([tenantId, organizationId, projectId])
+  @@index([createdAt])
   @@index([deletedAt])
   @@map("tags")
 }
@@ -664,6 +671,7 @@ model ParsedDocument {
   @@index([fileId, status])
   @@index([ingestionJobId])
   @@index([contentHash])
+  @@index([createdAt])
   @@index([deletedAt])
   @@map("parsed_documents")
 }
@@ -701,6 +709,7 @@ model ChunkingConfig {
 
   @@unique([tenantId, name])
   @@index([tenantId, isDefault])
+  @@index([createdAt])
   @@map("chunking_configs")
 }
 
@@ -759,6 +768,7 @@ model DocumentChunk {
   @@index([sourceId, status])
   @@index([fileId, status])
   @@index([contentHash])
+  @@index([createdAt])
   @@index([deletedAt])
   @@map("document_chunks")
 }
@@ -831,6 +841,7 @@ model EmbeddingModel {
   @@unique([provider, modelName, dimension])
   @@index([provider, isActive])
   @@index([isDefault])
+  @@index([createdAt])
   @@map("embedding_models")
 }
 
@@ -872,6 +883,7 @@ model EmbeddingConfig {
   @@index([tenantId, organizationId, projectId])
   @@index([knowledgeBaseId, isDefault])
   @@index([embeddingModelId])
+  @@index([createdAt])
   @@map("embedding_configs")
 }
 
@@ -924,6 +936,7 @@ model QdrantCollection {
   @@index([embeddingModelId])
   @@index([embeddingConfigId])
   @@index([status])
+  @@index([createdAt])
   @@index([deletedAt])
   @@map("qdrant_collections")
 }
@@ -988,6 +1001,7 @@ model ChunkEmbedding {
   @@index([embeddingModelId])
   @@index([embeddingConfigId])
   @@index([embeddedContentHash])
+  @@index([createdAt])
   @@index([deletedAt])
   @@map("chunk_embeddings")
 }
@@ -1152,6 +1166,7 @@ model IngestionAttempt {
   @@index([tenantId, organizationId, projectId])
   @@index([ingestionJobId, status])
   @@index([workerId])
+  @@index([createdAt])
   @@map("ingestion_attempts")
 }
 
@@ -1404,5 +1419,6 @@ model RetrievalResult {
   @@index([chunkId])
   @@index([chunkEmbeddingId])
   @@index([qdrantPointId])
+  @@index([createdAt])
   @@map("retrieval_results")
 }

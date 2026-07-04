@@ -152,7 +152,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: development
-    command: pnpm prisma:migrate:dev
+    command: pnpm db:migrate:dev
     profiles:
       - tools
     environment:

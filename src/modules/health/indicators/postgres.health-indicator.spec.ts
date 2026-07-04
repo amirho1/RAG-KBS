@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { jest } from "@jest/globals";
-import { PrismaService } from "../../../common/prisma/prisma.service.js";
 import healthConfig from "../../../config/health.config.js";
+import { PrismaService } from "../../database/prisma.service.js";
 import { PostgresHealthIndicator } from "./postgres.health-indicator.js";
 
 describe("PostgresHealthIndicator", () => {

@@ -89,6 +89,7 @@ export class ExampleQueueService {
 | App       | `NODE_ENV`                                                                          | `development`, `test`, or `production`     |
 | App       | `PORT`                                                                              | Positive integer                           |
 | Database  | `DATABASE_URL`                                                                      | PostgreSQL connection string               |
+| Database  | `DEFAULT_TENANT_ID`                                                                 | Seed tenant ID, defaults to `default`      |
 | Redis     | `REDIS_HOST`                                                                        | Redis hostname                             |
 | Redis     | `REDIS_PORT`                                                                        | Positive integer                           |
 | Qdrant    | `QDRANT_URL`                                                                        | Qdrant HTTP URL                            |
@@ -103,9 +104,9 @@ export class ExampleQueueService {
 | Ingestion | `INGESTION_QUEUE_NAME`                                                              | BullMQ queue name                          |
 | Ingestion | `INGESTION_CONCURRENCY`                                                             | Positive integer worker concurrency        |
 
-Optional variables with defaults include `REDIS_PASSWORD`, `REDIS_URL`, `QDRANT_COLLECTION`,
-`EMBEDDING_API_KEY`, `BULLMQ_QUEUE_PREFIX`, `LOG_LEVEL`, `S3_FORCE_PATH_STYLE`, and
-`WORKER_READY_FILE`.
+Optional variables with defaults include `DEFAULT_TENANT_ID`, `REDIS_PASSWORD`, `REDIS_URL`,
+`QDRANT_COLLECTION`, `EMBEDDING_API_KEY`, `BULLMQ_QUEUE_PREFIX`, `LOG_LEVEL`, `S3_FORCE_PATH_STYLE`,
+and `WORKER_READY_FILE`.
 
 ### Development vs production
 
@@ -158,9 +159,65 @@ This uses `prisma migrate dev`. It does not reset or wipe the database automatic
 For local non-Docker workflows:
 
 ```bash
-pnpm prisma:generate
-pnpm prisma:migrate:dev
+pnpm db:generate
+pnpm db:migrate:dev
 ```
+
+## Database And Prisma
+
+Configure PostgreSQL with `DATABASE_URL`:
+
+```env
+DATABASE_URL=postgresql://rag_kbs:rag_kbs_password@localhost:5432/rag_kbs
+```
+
+Inside Docker Compose, use the `postgres` hostname instead of `localhost`:
+
+```env
+DATABASE_URL=postgresql://rag_kbs:rag_kbs_password@postgres:5432/rag_kbs
+```
+
+Generate the Prisma client after installing dependencies or changing the Prisma schema:
+
+```bash
+pnpm db:generate
+```
+
+Create and apply a development migration:
+
+```bash
+pnpm db:migrate:dev
+```
+
+Deploy existing migrations in production:
+
+```bash
+pnpm db:migrate:deploy
+```
+
+Production must use `prisma migrate deploy`, not `prisma migrate dev`. The production Docker Compose
+file runs migrations through a separate one-shot `migrate` service before API and worker startup.
+
+Seed safe default RAG configuration records:
+
+```bash
+pnpm db:seed
+```
+
+The seed inserts or updates a default chunking config, embedding model placeholder, embedding
+config, and Qdrant collection config. It uses `DEFAULT_TENANT_ID` when provided and falls back to
+`default`. It does not create users, roles, permissions, billing, or frontend data.
+
+Open Prisma Studio:
+
+```bash
+pnpm db:studio
+```
+
+The API and worker both use the reusable `PrismaModule` and `PrismaService` from
+`src/modules/database`. PostgreSQL remains the source of truth for RAG metadata, lifecycle state,
+checksums, idempotency keys, chunk metadata, and Qdrant point references. Qdrant stores vectors and
+search payloads only; vector values are not stored in PostgreSQL.
 
 ## Production
 
@@ -174,7 +231,7 @@ docker compose --env-file .env.production -f docker-compose.yml -f docker-compos
 Production includes a one-shot `migrate` service that runs:
 
 ```bash
-pnpm prisma:migrate:deploy
+pnpm db:migrate:deploy
 ```
 
 The API and worker wait for the migration service to complete successfully before starting. The API
@@ -309,7 +366,11 @@ pnpm test
 pnpm lint
 pnpm format
 pnpm typecheck
-pnpm prisma:studio
+pnpm db:generate
+pnpm db:migrate:dev
+pnpm db:migrate:deploy
+pnpm db:seed
+pnpm db:studio
 ```
 
 Validate Compose files without starting containers:

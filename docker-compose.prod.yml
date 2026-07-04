@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: migrator
-    command: pnpm prisma:migrate:deploy
+    command: pnpm db:migrate:deploy
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL:-postgresql://rag_kbs:change-me@postgres:5432/rag_kbs}

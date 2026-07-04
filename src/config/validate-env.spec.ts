@@ -5,6 +5,7 @@ const baseValidEnv = {
   NODE_ENV: "development",
   PORT: "3000",
   DATABASE_URL: "postgresql://rag_kbs:rag_kbs_password@localhost:5432/rag_kbs",
+  DEFAULT_TENANT_ID: "default",
   REDIS_HOST: "localhost",
   REDIS_PORT: "6379",
   REDIS_PASSWORD: "",
@@ -109,5 +110,6 @@ describe("validateEnv", () => {
     expect(env.STORAGE_HEALTH_TIMEOUT_MS).toBe(3000);
     expect(env.QUEUE_HEALTH_TIMEOUT_MS).toBe(2000);
     expect(env.SERVICE_NAME).toBe("rag-kbs-api");
+    expect(env.DEFAULT_TENANT_ID).toBe("default");
   });
 });
