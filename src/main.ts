@@ -1,8 +1,10 @@
 import { VersioningType } from "@nestjs/common";
+import { ConfigType } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { cleanupOpenApiDoc } from "nestjs-zod";
 import { AppModule } from "./app.module";
+import appConfig from "./config/app.config.js";
 
 /**
  * Start the NestJS application and expose the Swagger documentation.
@@ -36,6 +38,8 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  const { port } = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
+
+  await app.listen(port);
 }
 void bootstrap();

@@ -11,6 +11,7 @@ WORKDIR /app
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:${PATH}"
+ENV CI=true
 ENV DATABASE_URL="postgresql://rag_kbs:rag_kbs_password@localhost:5432/rag_kbs"
 
 RUN apt-get update \

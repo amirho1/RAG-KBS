@@ -1,17 +1,20 @@
 import { INestApplicationContext, Logger } from "@nestjs/common";
+import { ConfigType } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "../app.module.js";
+import appConfig from "../config/app.config.js";
 import { writeWorkerReadyFile } from "./worker-ready-file.js";
 
 const logger = new Logger("IngestionWorker");
-const workerReadyFile =
-  process.env.WORKER_READY_FILE ?? "/tmp/rag-kbs-worker.ready";
 
 /**
  * Start the ingestion worker process.
  */
 async function bootstrapIngestionWorker(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule);
+  const { workerReadyFile } = app.get<ConfigType<typeof appConfig>>(
+    appConfig.KEY
+  );
   const keepAliveTimer = setInterval(() => undefined, 2_147_483_647);
 
   app.enableShutdownHooks();
