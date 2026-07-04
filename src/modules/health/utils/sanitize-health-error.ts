@@ -14,6 +14,10 @@ export function sanitizeHealthError(
 
   let message = error.message;
 
+  if (shouldUseFallbackMessage(message)) {
+    return fallbackMessage;
+  }
+
   message = message.replace(
     /(postgresql|postgres|redis|amqp|mongodb):\/\/\S+/gi,
     "[redacted-connection-string]"
@@ -30,4 +34,20 @@ export function sanitizeHealthError(
   }
 
   return message;
+}
+
+/**
+ * Determine whether an error is too noisy or implementation-specific for health logs.
+ * @param message - The original error message.
+ * @returns True when the fallback message should be used.
+ */
+function shouldUseFallbackMessage(message: string): boolean {
+  const normalizedMessage = message.toLowerCase();
+
+  return (
+    normalizedMessage.includes("invalid `prisma.") ||
+    normalizedMessage.includes("raw query failed") ||
+    normalizedMessage.includes("can't reach database server") ||
+    normalizedMessage.includes("can’t reach database server")
+  );
 }

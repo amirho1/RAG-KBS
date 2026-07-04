@@ -1,11 +1,14 @@
 import {
+  Inject,
   Injectable,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
+import type { ConfigType } from "@nestjs/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import databaseConfig from "../../config/database.config.js";
 import { PrismaClient } from "../../generated/prisma/client.js";
 
 /**
@@ -41,8 +44,11 @@ export class PrismaService
   private readonly logger = new Logger(PrismaService.name);
   private readonly pool: Pool;
 
-  constructor() {
-    const pool = new Pool();
+  constructor(
+    @Inject(databaseConfig.KEY)
+    database: ConfigType<typeof databaseConfig>
+  ) {
+    const pool = new Pool({ connectionString: database.url });
     const adapter = new PrismaPg(pool);
     super({ adapter });
     this.pool = pool;

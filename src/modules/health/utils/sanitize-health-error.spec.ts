@@ -36,4 +36,17 @@ describe("sanitizeHealthError", () => {
     expect(message).not.toContain("/app/src/file.ts");
     expect(message).toBe("Timeout");
   });
+
+  it("should collapse Prisma raw query failures to the fallback message", () => {
+    const message = sanitizeHealthError(
+      new Error(
+        "Invalid `prisma.$queryRaw()` invocation:\n\n\nRaw query failed. Code: `N/A`. Message: `Can't reach database server`"
+      ),
+      "PostgreSQL health check failed"
+    );
+
+    expect(message).toBe("PostgreSQL health check failed");
+    expect(message).not.toContain("$queryRaw");
+    expect(message).not.toContain("Raw query failed");
+  });
 });
