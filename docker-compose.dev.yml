@@ -1,0 +1,213 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: development
+    command: pnpm start:dev
+    environment:
+      NODE_ENV: development
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://rag_kbs:rag_kbs_password@postgres:5432/rag_kbs}
+      POSTGRES_USER: ${POSTGRES_USER:-rag_kbs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag_kbs_password}
+      POSTGRES_DB: ${POSTGRES_DB:-rag_kbs}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-rag_kbs_development}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-minio}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-rag-kbs-development}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-rag-kbs-minio}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-rag-kbs-minio-password}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-development-placeholder}
+      BULLMQ_QUEUE_PREFIX: ${BULLMQ_QUEUE_PREFIX:-rag-kbs}
+      INGESTION_QUEUE_NAME: ${INGESTION_QUEUE_NAME:-ingestion}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      WAIT_FOR_HOSTS: postgres:5432,redis:6379,qdrant:6333,minio:9000
+    volumes:
+      - .:/app
+      - node-modules:/app/node_modules
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://127.0.0.1:'' + (process.env.PORT || ''3000'') + ''/health'').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    networks:
+      - rag-kbs
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: development
+    command: pnpm worker:dev
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL:-postgresql://rag_kbs:rag_kbs_password@postgres:5432/rag_kbs}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-rag_kbs_development}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-minio}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-rag-kbs-development}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-rag-kbs-minio}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-rag-kbs-minio-password}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-development-placeholder}
+      BULLMQ_QUEUE_PREFIX: ${BULLMQ_QUEUE_PREFIX:-rag-kbs}
+      INGESTION_QUEUE_NAME: ${INGESTION_QUEUE_NAME:-ingestion}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      WAIT_FOR_HOSTS: postgres:5432,redis:6379,qdrant:6333,minio:9000
+      WORKER_READY_FILE: /tmp/rag-kbs-worker.ready
+    volumes:
+      - .:/app
+      - node-modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'test -f "$${WORKER_READY_FILE:-/tmp/rag-kbs-worker.ready}"',
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    networks:
+      - rag-kbs
+
+  migrate-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: development
+    command: pnpm prisma:migrate:dev
+    profiles:
+      - tools
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL:-postgresql://rag_kbs:rag_kbs_password@postgres:5432/rag_kbs}
+      WAIT_FOR_HOSTS: postgres:5432
+    volumes:
+      - .:/app
+      - node-modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rag-kbs
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rag_kbs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag_kbs_password}
+      POSTGRES_DB: ${POSTGRES_DB:-rag_kbs}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rag-kbs
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rag-kbs
+
+  qdrant:
+    image: qdrant/qdrant:v1.13.4
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:6333/readyz >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rag-kbs
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rag-kbs-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rag-kbs-minio-password}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -f http://127.0.0.1:9000/minio/health/live >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rag-kbs

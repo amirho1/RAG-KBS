@@ -1,13 +1,10 @@
+import { config } from "dotenv";
 import { defineConfig } from "prisma/config";
 
 // Load .env file only if DATABASE_URL is not already set (for local development)
 // In Docker, environment variables are set directly, so this won't interfere
 if (!process.env.DATABASE_URL) {
-  try {
-    await import("dotenv/config");
-  } catch {
-    // dotenv not available, continue without it
-  }
+  config();
 }
 
 export default defineConfig({

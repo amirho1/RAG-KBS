@@ -1,0 +1,12 @@
+name: rag-kbs
+
+networks:
+  rag-kbs:
+    driver: bridge
+
+volumes:
+  node-modules:
+  postgres-data:
+  redis-data:
+  qdrant-data:
+  minio-data:
