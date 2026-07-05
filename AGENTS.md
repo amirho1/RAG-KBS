@@ -699,6 +699,76 @@ const canCreateFreeTrial = async (
 
 Avoid hardcoded dependencies when they make testing difficult.
 
+## Avoid Unnecessary Wrapper Functions
+
+Do not create a function whose only job is to call another function with the same arguments and
+return its result. Call the original function directly instead.
+
+A wrapper adds indirection without adding behavior, tests, or a meaningful boundary.
+
+### Do
+
+Call the existing function at the call site.
+
+```typescript
+// src/common/metadata/json-response.ts
+
+/**
+ * Convert values that JSON cannot serialize into API-safe values.
+ * @param value - Value to serialize safely.
+ * @returns JSON-safe value.
+ */
+export function serializeJsonResponse(value: unknown): unknown {
+  // ...
+}
+
+// src/modules/files/files.service.ts
+
+serializeJsonResponse(file);
+```
+
+Reuse one function when the name already describes the job.
+
+```typescript
+serializeJsonResponse(record);
+```
+
+### Do Not
+
+Do not add a pass-through alias that only forwards arguments.
+
+```typescript
+/**
+ * Serialize a value for API responses.
+ * @param value - Value to serialize.
+ * @returns Serialized value.
+ */
+export function serializer(value: unknown): unknown {
+  return serializeJsonResponse(value);
+}
+```
+
+Do not create thin wrappers "for organization" when they do not add validation, mapping, error
+handling, dependency injection, or another real responsibility.
+
+```typescript
+export function getUserById(userId: string) {
+  return findUserById(userId);
+}
+```
+
+### When a Wrapper Is Acceptable
+
+Create a separate function only when it has its own reason to exist, for example:
+
+- It adds behavior such as validation, transformation, logging, or error mapping
+- It adapts a low-level function to a higher-level contract
+- It is a dependency-injection seam or test double boundary
+- It composes multiple functions into one use case
+
+If the wrapper would be identical to a direct call, delete the wrapper and call the original
+function.
+
 ---
 
 ## Review Checklist for AI

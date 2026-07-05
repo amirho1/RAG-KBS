@@ -337,6 +337,127 @@ The API and worker both use the reusable `PrismaModule` and `PrismaService` from
 checksums, idempotency keys, chunk metadata, and Qdrant point references. Qdrant stores vectors and
 search payloads only; vector values are not stored in PostgreSQL.
 
+## Core Metadata Modules
+
+The MVP metadata API manages the relational source of truth needed before ingestion, chunking,
+embedding, vector indexing, and retrieval. These modules do not authenticate callers, store binary
+content in PostgreSQL, run ingestion, or delete Qdrant vectors.
+
+### Entity responsibilities
+
+- `KnowledgeBase`: a tenant-scoped logical RAG knowledge base with a unique tenant slug, metadata,
+  lifecycle status, and soft deletion.
+- `Source`: a logical source inside a knowledge base, such as documentation, manuals, web pages, or
+  uploaded document groups.
+- `StorageObject`: metadata for the physical object stored in local, MinIO, S3, or compatible
+  storage. It stores object references and checksums only.
+- `DocumentFile`: a logical file attached to a source. It references a `StorageObject`, tracks file
+  metadata and processing state, and prevents duplicate checksums inside one source.
+- `Tag`: tenant-scoped searchable labels that can be attached to sources and files.
+
+### Endpoints
+
+All metadata endpoints are versioned under `/api/v1`.
+
+| Resource        | Endpoints                                                                                |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| Knowledge bases | `POST /knowledge-bases`, `GET /knowledge-bases`, `GET/PATCH/DELETE /knowledge-bases/:id` |
+| Sources         | `POST /sources`, `GET /sources`, `GET/PATCH/DELETE /sources/:id`                         |
+| Storage objects | `POST /storage-objects`, `GET /storage-objects`, `GET/PATCH/DELETE /storage-objects/:id` |
+| Files           | `POST /files`, `GET /files`, `GET/PATCH/DELETE /files/:id`                               |
+| Tags            | `POST /tags`, `GET /tags`, `GET/PATCH/DELETE /tags/:id`                                  |
+| Tag assignments | `POST/DELETE /sources/:sourceId/tags/:tagId`, `POST/DELETE /files/:fileId/tags/:tagId`   |
+
+Create endpoints accept `tenantId` in the request body. Read, list, update, delete, and tag
+assignment endpoints require `tenantId` as a query parameter. Optional `organizationId` and
+`projectId` query parameters can further filter list endpoints, but `tenantId` is the primary
+isolation boundary.
+
+### Tenant scoping and deletion
+
+RAG-KBS trusts tenant IDs from upstream services, such as an API gateway or main backend. Every
+normal read, list, update, and delete operation filters by `tenantId` and excludes records where
+`deletedAt` is set. Cross-tenant reads return `404` instead of revealing whether another tenant's
+record exists.
+
+Deletes are soft deletes. Knowledge bases, sources, storage objects, files, and tags set
+`deletedAt`; knowledge bases, sources, and files also move to their deleted lifecycle status. Child
+records, stored binaries, ingestion jobs, chunks, embeddings, and Qdrant vectors are not deleted by
+these CRUD modules.
+
+### Tagging
+
+Tag names are normalized before saving, and `normalizedName` is unique per tenant. Tag assignment
+endpoints validate that both the target record and the tag belong to the same tenant. Duplicate
+source/file tag assignments return `409 Conflict`, and missing assignments return `404`.
+
+Source and file read/list responses include tag summaries for non-deleted tags. Future ingestion
+workers can copy these tag names into Qdrant payloads for metadata-filtered retrieval.
+
+### Future ingestion connection
+
+A typical ingestion flow starts by creating a knowledge base, source, storage object metadata, and
+document file metadata. Future ingestion modules can then create ingestion jobs, parse the stored
+object, create chunks, embed them, and upsert Qdrant points while preserving these metadata IDs as
+the traceability backbone.
+
+### Example requests
+
+Create a knowledge base:
+
+```http
+POST /api/v1/knowledge-bases
+content-type: application/json
+
+{
+  "tenantId": "tenant_acme",
+  "name": "API Documentation",
+  "description": "Public API docs for retrieval.",
+  "metadata": {
+    "domain": "developer-docs"
+  }
+}
+```
+
+Create a source:
+
+```http
+POST /api/v1/sources
+content-type: application/json
+
+{
+  "tenantId": "tenant_acme",
+  "knowledgeBaseId": "f1f2c580-0d4c-4fb5-9d18-69c6d8324cc4",
+  "name": "OpenAPI docs",
+  "type": "OPENAPI",
+  "description": "Uploaded API specification sources."
+}
+```
+
+Create file metadata:
+
+```http
+POST /api/v1/files
+content-type: application/json
+
+{
+  "tenantId": "tenant_acme",
+  "sourceId": "f1f2c580-0d4c-4fb5-9d18-69c6d8324cc4",
+  "storageObjectId": "6f7e4a08-4c14-4ca4-82c0-b3d63dfdc86b",
+  "originalName": "openapi.yaml",
+  "mimeType": "application/yaml",
+  "fileType": "OPENAPI",
+  "sizeBytes": "2048",
+  "checksumSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+```
+
+Attach a tag:
+
+```http
+POST /api/v1/sources/f1f2c580-0d4c-4fb5-9d18-69c6d8324cc4/tags/6f7e4a08-4c14-4ca4-82c0-b3d63dfdc86b?tenantId=tenant_acme
+```
+
 ## Production
 
 Build and run the self-hosted production stack:
