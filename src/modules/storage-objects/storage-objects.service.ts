@@ -11,6 +11,7 @@ import { toPrismaNullableJson } from "../../common/metadata/prisma-json.js";
 import { buildOrderBy } from "../../common/metadata/sorting.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { PrismaService } from "../database/prisma.service.js";
+import { StorageService } from "../storage/storage.service.js";
 import type {
   CreateStorageObjectInput,
   ListStorageObjectsQuery,
@@ -26,7 +27,8 @@ type StorageObjectWhereInput = Prisma.StorageObjectWhereInput;
 export class StorageObjectsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly logger: PinoLoggerService
+    private readonly logger: PinoLoggerService,
+    private readonly storageService: StorageService
   ) {}
 
   /**
@@ -185,24 +187,12 @@ export class StorageObjectsService {
   }
 
   /**
-   * Soft-delete a tenant-scoped storage object.
+   * Delete a tenant-scoped storage object and its physical bytes when unreferenced.
    * @param id - Storage object ID.
    * @param tenantId - Tenant ID.
    */
   async delete(id: string, tenantId: string): Promise<void> {
-    await this.ensureStorageObjectExists(id, tenantId);
-    await this.prisma.storageObject.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-
-    this.logger.info({
-      event: "storage_object.deleted",
-      tenantId,
-      storageObjectId: id,
-    });
+    await this.storageService.deleteStoredObject(id, tenantId);
   }
 
   /**

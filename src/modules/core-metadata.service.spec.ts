@@ -1,11 +1,12 @@
-import { ConflictException, NotFoundException } from "@nestjs/common";
 import { jest } from "@jest/globals";
+import { ConflictException, NotFoundException } from "@nestjs/common";
 import { PinoLoggerService } from "../common/logger/pino-logger.service.js";
 import { PrismaService } from "./database/prisma.service.js";
 import { FilesService } from "./files/files.service.js";
 import { KnowledgeBasesService } from "./knowledge-bases/knowledge-bases.service.js";
 import { SourcesService } from "./sources/sources.service.js";
 import { StorageObjectsService } from "./storage-objects/storage-objects.service.js";
+import { StorageService } from "./storage/storage.service.js";
 import { TagsService } from "./tags/tags.service.js";
 
 const tenantId = "tenant_acme";
@@ -73,6 +74,19 @@ function createLoggerMock(): Pick<PinoLoggerService, "info"> {
 }
 
 /**
+ * Create a storage service mock for storage-object metadata tests.
+ * @returns Mock storage service.
+ */
+function createStorageServiceMock(): Pick<
+  StorageService,
+  "deleteStoredObject"
+> {
+  return {
+    deleteStoredObject: jest.fn<() => Promise<void>>(),
+  };
+}
+
+/**
  * Create a typed Jest objectContaining matcher.
  * @param value - Expected object shape.
  * @returns Typed asymmetric matcher.
@@ -127,7 +141,8 @@ function createStorageObjectsService(
 ): StorageObjectsService {
   return new StorageObjectsService(
     prisma as unknown as PrismaService,
-    createLoggerMock() as PinoLoggerService
+    createLoggerMock() as PinoLoggerService,
+    createStorageServiceMock() as unknown as StorageService
   );
 }
 

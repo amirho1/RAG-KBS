@@ -21,7 +21,7 @@ services:
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-rag_kbs_development}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
-      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-}
+      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/storage}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-rag-kbs-development}
@@ -33,6 +33,7 @@ services:
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-development-placeholder}
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-50}
+      ALLOWED_UPLOAD_MIME_TYPES: ${ALLOWED_UPLOAD_MIME_TYPES:-application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet}
       BULLMQ_QUEUE_PREFIX: ${BULLMQ_QUEUE_PREFIX:-rag-kbs}
       INGESTION_QUEUE_NAME: ${INGESTION_QUEUE_NAME:-ingestion}
       INGESTION_CONCURRENCY: ${INGESTION_CONCURRENCY:-2}
@@ -59,6 +60,9 @@ services:
       - type: volume
         source: logs
         target: /app/logs
+      - type: volume
+        source: local-storage
+        target: /app/storage
     ports:
       - "${PORT:-3000}:3000"
     depends_on:
@@ -102,7 +106,7 @@ services:
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-rag_kbs_development}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
-      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-}
+      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/storage}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-rag-kbs-development}
@@ -114,6 +118,7 @@ services:
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-development-placeholder}
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-50}
+      ALLOWED_UPLOAD_MIME_TYPES: ${ALLOWED_UPLOAD_MIME_TYPES:-application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet}
       BULLMQ_QUEUE_PREFIX: ${BULLMQ_QUEUE_PREFIX:-rag-kbs}
       INGESTION_QUEUE_NAME: ${INGESTION_QUEUE_NAME:-ingestion}
       INGESTION_CONCURRENCY: ${INGESTION_CONCURRENCY:-2}
@@ -141,6 +146,9 @@ services:
       - type: volume
         source: logs
         target: /app/logs
+      - type: volume
+        source: local-storage
+        target: /app/storage
     depends_on:
       postgres:
         condition: service_healthy

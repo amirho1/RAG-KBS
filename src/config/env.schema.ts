@@ -7,6 +7,41 @@ const storageDriverSchema = z.enum(["local", "s3"]);
 const logFormatSchema = z.enum(["json", "pretty"]);
 
 const positiveIntSchema = z.coerce.number().int().positive();
+const uploadMimeTypePattern =
+  /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$/;
+
+/**
+ * Split and validate comma-separated upload MIME type values.
+ * @param value - Raw comma-separated environment value.
+ * @returns Normalized MIME type allowlist.
+ */
+function parseAllowedUploadMimeTypes(value: string): string[] {
+  return value
+    .split(",")
+    .map((mimeType) => mimeType.trim().toLowerCase())
+    .filter((mimeType) => mimeType.length > 0);
+}
+
+/**
+ * Check whether every MIME type in the allowlist has a valid shape.
+ * @param mimeTypes - MIME type allowlist.
+ * @returns True when every MIME type is valid.
+ */
+function isAllowedUploadMimeTypesValue(mimeTypes: string[]): boolean {
+  return mimeTypes.every((mimeType) => uploadMimeTypePattern.test(mimeType));
+}
+
+const allowedUploadMimeTypesSchema = z
+  .string()
+  .trim()
+  .min(1, "ALLOWED_UPLOAD_MIME_TYPES is required")
+  .transform(parseAllowedUploadMimeTypes)
+  .refine((mimeTypes) => mimeTypes.length > 0, {
+    message: "ALLOWED_UPLOAD_MIME_TYPES must include at least one MIME type",
+  })
+  .refine(isAllowedUploadMimeTypesValue, {
+    message: "ALLOWED_UPLOAD_MIME_TYPES contains an invalid MIME type",
+  });
 
 /**
  * Create a boolean env schema from true/false strings.
@@ -49,6 +84,7 @@ export const envSchema = z
       .optional()
       .default("false")
       .transform((value) => value === "true"),
+    ALLOWED_UPLOAD_MIME_TYPES: allowedUploadMimeTypesSchema,
     EMBEDDING_PROVIDER: z.string().min(1, "EMBEDDING_PROVIDER is required"),
     EMBEDDING_MODEL: z.string().min(1, "EMBEDDING_MODEL is required"),
     EMBEDDING_DIMENSION: positiveIntSchema,

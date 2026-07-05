@@ -26,6 +26,8 @@ const testEnv = {
   EMBEDDING_DIMENSION: "1536",
   EMBEDDING_API_KEY: "test-placeholder",
   MAX_UPLOAD_SIZE_MB: "50",
+  ALLOWED_UPLOAD_MIME_TYPES:
+    "application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   INGESTION_QUEUE_NAME: "ingestion",
   INGESTION_CONCURRENCY: "2",
   BULLMQ_QUEUE_PREFIX: "rag-kbs-test",

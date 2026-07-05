@@ -22,6 +22,8 @@ const baseValidEnv = {
   EMBEDDING_MODEL: "text-embedding-3-small",
   EMBEDDING_DIMENSION: "1536",
   MAX_UPLOAD_SIZE_MB: "50",
+  ALLOWED_UPLOAD_MIME_TYPES:
+    "application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   INGESTION_QUEUE_NAME: "ingestion",
   INGESTION_CONCURRENCY: "2",
 } as const;
@@ -38,6 +40,7 @@ describe("validateEnv", () => {
     expect(env.PORT).toBe(3000);
     expect(env.STORAGE_DRIVER).toBe("local");
     expect(env.LOCAL_STORAGE_PATH).toBe("./storage");
+    expect(env.ALLOWED_UPLOAD_MIME_TYPES).toContain("application/pdf");
   });
 
   it("should validate an s3 storage environment", () => {
@@ -93,6 +96,17 @@ describe("validateEnv", () => {
         LOCAL_STORAGE_PATH: "",
       })
     ).toThrow("Environment validation failed:");
+  });
+
+  it("should fail when allowed upload MIME types are invalid", () => {
+    expect(() =>
+      validateEnv({
+        ...baseValidEnv,
+        ALLOWED_UPLOAD_MIME_TYPES: "text/plain,not-a-mime-type",
+      })
+    ).toThrow(
+      "Environment validation failed:\n- ALLOWED_UPLOAD_MIME_TYPES: ALLOWED_UPLOAD_MIME_TYPES contains an invalid MIME type"
+    );
   });
 
   it("should derive a redis url when REDIS_URL is not provided", () => {

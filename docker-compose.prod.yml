@@ -42,6 +42,7 @@ services:
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-change-me}
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-50}
+      ALLOWED_UPLOAD_MIME_TYPES: ${ALLOWED_UPLOAD_MIME_TYPES:-application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet}
       BULLMQ_QUEUE_PREFIX: ${BULLMQ_QUEUE_PREFIX:-rag-kbs}
       INGESTION_QUEUE_NAME: ${INGESTION_QUEUE_NAME:-ingestion}
       INGESTION_CONCURRENCY: ${INGESTION_CONCURRENCY:-2}
@@ -57,6 +58,9 @@ services:
       - type: volume
         source: logs
         target: /app/logs
+      - type: volume
+        source: local-storage
+        target: /app/storage
     ports:
       - "${PORT:-3000}:3000"
     depends_on:
@@ -104,6 +108,7 @@ services:
       EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-1536}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-change-me}
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-50}
+      ALLOWED_UPLOAD_MIME_TYPES: ${ALLOWED_UPLOAD_MIME_TYPES:-application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet}
       BULLMQ_QUEUE_PREFIX: ${BULLMQ_QUEUE_PREFIX:-rag-kbs}
       INGESTION_QUEUE_NAME: ${INGESTION_QUEUE_NAME:-ingestion}
       INGESTION_CONCURRENCY: ${INGESTION_CONCURRENCY:-2}
@@ -120,6 +125,9 @@ services:
       - type: volume
         source: logs
         target: /app/logs
+      - type: volume
+        source: local-storage
+        target: /app/storage
     depends_on:
       migrate:
         condition: service_completed_successfully

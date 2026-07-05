@@ -97,6 +97,7 @@ export class ExampleQueueService {
 | Storage   | `STORAGE_DRIVER`                                                                    | `local` or `s3`                            |
 | Storage   | `LOCAL_STORAGE_PATH`                                                                | Required when `STORAGE_DRIVER=local`       |
 | Storage   | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Required when `STORAGE_DRIVER=s3`          |
+| Storage   | `ALLOWED_UPLOAD_MIME_TYPES`                                                         | Comma-separated upload MIME allowlist      |
 | Embedding | `EMBEDDING_PROVIDER`                                                                | Configurable provider name (not hardcoded) |
 | Embedding | `EMBEDDING_MODEL`                                                                   | Model identifier for the provider          |
 | Embedding | `EMBEDDING_DIMENSION`                                                               | Positive integer vector size               |
@@ -131,7 +132,8 @@ ship to log processors.
   `.env` before running `pnpm docker:dev`.
 - **Production:** use `STORAGE_DRIVER=s3` and provide real S3-compatible credentials. When
   `STORAGE_DRIVER=s3`, all S3 variables must be non-empty.
-- **`STORAGE_DRIVER=local`** remains valid for edge cases but is not the default.
+- **`STORAGE_DRIVER=local`** remains valid for edge cases but is not the default. In Docker, set
+  `LOCAL_STORAGE_PATH=/app/storage` so the API and worker share the mounted local storage volume.
 - Numeric variables (`PORT`, `REDIS_PORT`, `EMBEDDING_DIMENSION`, `MAX_UPLOAD_SIZE_MB`,
   `INGESTION_CONCURRENCY`) are coerced from strings at startup.
 
@@ -363,6 +365,7 @@ All metadata endpoints are versioned under `/api/v1`.
 | --------------- | ---------------------------------------------------------------------------------------- |
 | Knowledge bases | `POST /knowledge-bases`, `GET /knowledge-bases`, `GET/PATCH/DELETE /knowledge-bases/:id` |
 | Sources         | `POST /sources`, `GET /sources`, `GET/PATCH/DELETE /sources/:id`                         |
+| Storage upload  | `POST /storage/upload`                                                                   |
 | Storage objects | `POST /storage-objects`, `GET /storage-objects`, `GET/PATCH/DELETE /storage-objects/:id` |
 | Files           | `POST /files`, `GET /files`, `GET/PATCH/DELETE /files/:id`                               |
 | Tags            | `POST /tags`, `GET /tags`, `GET/PATCH/DELETE /tags/:id`                                  |
@@ -380,10 +383,11 @@ normal read, list, update, and delete operation filters by `tenantId` and exclud
 `deletedAt` is set. Cross-tenant reads return `404` instead of revealing whether another tenant's
 record exists.
 
-Deletes are soft deletes. Knowledge bases, sources, storage objects, files, and tags set
-`deletedAt`; knowledge bases, sources, and files also move to their deleted lifecycle status. Child
-records, stored binaries, ingestion jobs, chunks, embeddings, and Qdrant vectors are not deleted by
-these CRUD modules.
+Deletes are soft deletes for knowledge bases, sources, files, and tags. Storage object deletion is
+guarded: `DELETE /api/v1/storage-objects/:id` first checks that no active `DocumentFile` records
+reference the object, deletes the physical local/S3 object, then sets `deletedAt`. It returns
+`409 Conflict` while active files still reference the object. Qdrant vectors, parsed documents,
+chunks, embeddings, and ingestion jobs are not deleted by the storage module.
 
 ### Tagging
 
@@ -451,6 +455,104 @@ content-type: application/json
   "checksumSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 ```
+
+Upload and store a file:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/storage/upload \
+  -F tenantId=tenant_acme \
+  -F sourceId=f1f2c580-0d4c-4fb5-9d18-69c6d8324cc4 \
+  -F title="Product manual" \
+  -F metadata='{"category":"manual","language":"en"}' \
+  -F file=@./manual.txt\;type=text/plain
+```
+
+Example upload response:
+
+```json
+{
+  "storageObject": {
+    "id": "6f7e4a08-4c14-4ca4-82c0-b3d63dfdc86b",
+    "tenantId": "tenant_acme",
+    "provider": "S3",
+    "bucket": "rag-kbs-development",
+    "objectKey": "tenants/tenant_acme/sources/f1f2c580-0d4c-4fb5-9d18-69c6d8324cc4/year=2026/month=07/8b2f...-2cf24dba....txt",
+    "originalName": "manual.txt",
+    "mimeType": "text/plain",
+    "sizeBytes": "5",
+    "checksumSha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+  },
+  "file": {
+    "id": "113d5fe3-927e-428d-9b55-557a6f776ed9",
+    "tenantId": "tenant_acme",
+    "sourceId": "f1f2c580-0d4c-4fb5-9d18-69c6d8324cc4",
+    "storageObjectId": "6f7e4a08-4c14-4ca4-82c0-b3d63dfdc86b",
+    "status": "STORED",
+    "processingState": "NOT_STARTED"
+  }
+}
+```
+
+The upload endpoint validates tenant/source fields, file size, empty files, filename length, MIME
+type, and metadata shape. It calculates `checksumSha256` for every upload. Uploading the same
+checksum into the same source returns `409 Conflict`; uploading the same bytes into another source
+for the same tenant reuses the existing `StorageObject` when possible and creates a separate
+`DocumentFile`.
+
+Allowed MIME types are configured with:
+
+```env
+MAX_UPLOAD_SIZE_MB=50
+ALLOWED_UPLOAD_MIME_TYPES=application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+```
+
+### Storage setup
+
+Local storage:
+
+```env
+STORAGE_DRIVER=local
+LOCAL_STORAGE_PATH=./storage
+```
+
+Docker local storage:
+
+```env
+STORAGE_DRIVER=local
+LOCAL_STORAGE_PATH=/app/storage
+```
+
+The Compose files mount the same `local-storage` volume into API and worker containers at
+`/app/storage`, so future workers can read the same files the API writes.
+
+S3-compatible storage, including MinIO:
+
+```env
+STORAGE_DRIVER=s3
+S3_ENDPOINT=http://minio:9000
+S3_REGION=us-east-1
+S3_BUCKET=rag-kbs-development
+S3_ACCESS_KEY_ID=rag-kbs-minio
+S3_SECRET_ACCESS_KEY=rag-kbs-minio-password
+S3_FORCE_PATH_STYLE=true
+```
+
+Production should use managed S3-compatible object storage when possible. Local storage in
+production should be explicit, backed by durable shared storage, and avoided for horizontally scaled
+API or worker deployments.
+
+### Worker retrieval
+
+Future ingestion workers should inject `StorageService` and scope every read by `tenantId`:
+
+```typescript
+const stream = await this.storageService.getFileStream(storageObjectId, tenantId);
+
+const buffer = await this.storageService.getFileBuffer(storageObjectId, tenantId);
+```
+
+Use streams for parsers that can stream input. Use `getFileBuffer` only for parsers that require the
+entire file in memory.
 
 Attach a tag:
 

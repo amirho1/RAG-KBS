@@ -156,7 +156,7 @@ export class StorageObjectsController {
   @ApiOperation({
     summary: "Delete storage object metadata",
     description:
-      "Soft-deletes the metadata record only. It does not delete the stored binary object.",
+      "Deletes the stored binary object and soft-deletes metadata only when no active document files reference it.",
   })
   @ApiParam({ name: "id", description: "Storage object UUID" })
   @ApiQuery({ name: "tenantId", required: true, example: "tenant_acme" })

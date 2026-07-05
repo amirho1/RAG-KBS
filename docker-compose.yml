@@ -11,3 +11,4 @@ volumes:
   redis-data:
   qdrant-data:
   minio-data:
+  local-storage:

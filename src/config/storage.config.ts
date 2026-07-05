@@ -18,5 +18,6 @@ export default registerAs("storage", () => {
       secretAccessKey: env.S3_SECRET_ACCESS_KEY,
       forcePathStyle: env.S3_FORCE_PATH_STYLE,
     },
+    allowedUploadMimeTypes: env.ALLOWED_UPLOAD_MIME_TYPES,
   };
 });
