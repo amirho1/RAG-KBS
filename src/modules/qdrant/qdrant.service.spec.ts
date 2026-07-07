@@ -99,4 +99,52 @@ describe("QdrantService", () => {
       })
     ).rejects.toThrow("QDRANT_COLLECTION_CONFIG_MISMATCH");
   });
+
+  it("should search points with payloads and without vectors", async () => {
+    const search = jest.fn<(...args: any[]) => Promise<any[]>>(() =>
+      Promise.resolve([
+        {
+          id: "point-1",
+          score: 0.8,
+          payload: {
+            chunkId: "chunk-1",
+          },
+        },
+      ])
+    );
+    const client = {
+      search,
+    };
+    const service = createQdrantService(client);
+
+    const results = await service.searchPoints({
+      collectionName: "rag_kbs_test",
+      vector: [1, 0, 0, 0],
+      topK: 3,
+      scoreThreshold: 0.2,
+      filter: {
+        must: [{ key: "tenantId", match: { value: "tenant_acme" } }],
+      },
+      timeoutMs: 30_000,
+    });
+
+    expect(search).toHaveBeenCalledWith(
+      "rag_kbs_test",
+      expect.objectContaining({
+        with_payload: true,
+        with_vector: false,
+        limit: 3,
+        score_threshold: 0.2,
+      })
+    );
+    expect(results).toEqual([
+      {
+        id: "point-1",
+        score: 0.8,
+        payload: {
+          chunkId: "chunk-1",
+        },
+      },
+    ]);
+  });
 });

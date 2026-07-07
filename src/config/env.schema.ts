@@ -37,6 +37,7 @@ const distanceMetricSchema = z.enum([
 ]);
 
 const positiveIntSchema = z.coerce.number().int().positive();
+const nonNegativeNumberSchema = z.coerce.number().finite().min(0);
 const uploadMimeTypePattern =
   /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$/;
 
@@ -148,6 +149,16 @@ export const envSchema = z
       .min(1)
       .optional()
       .default("gpt-4o-mini"),
+    RETRIEVAL_DEFAULT_TOP_K: positiveIntSchema.optional().default(8),
+    RETRIEVAL_MAX_TOP_K: positiveIntSchema.optional().default(30),
+    RETRIEVAL_DEFAULT_SCORE_THRESHOLD: nonNegativeNumberSchema
+      .optional()
+      .default(0),
+    RETRIEVAL_TIMEOUT_MS: positiveIntSchema.optional().default(30_000),
+    RETRIEVAL_STORE_QUERY_TEXT: createBooleanStringSchema(true),
+    RETRIEVAL_STORE_RESULTS: createBooleanStringSchema(true),
+    RETRIEVAL_INCLUDE_TEXT_DEFAULT: createBooleanStringSchema(true),
+    RETRIEVAL_INCLUDE_METADATA_DEFAULT: createBooleanStringSchema(true),
     MAX_UPLOAD_SIZE_MB: positiveIntSchema,
     INGESTION_QUEUE_NAME: z.string().min(1, "INGESTION_QUEUE_NAME is required"),
     INGESTION_CONCURRENCY: positiveIntSchema,
@@ -235,6 +246,15 @@ export const envSchema = z
         message:
           "QDRANT_VECTOR_SIZE must match EMBEDDING_DIMENSION for the default collection",
         path: ["QDRANT_VECTOR_SIZE"],
+      });
+    }
+
+    if (data.RETRIEVAL_DEFAULT_TOP_K > data.RETRIEVAL_MAX_TOP_K) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "RETRIEVAL_DEFAULT_TOP_K must be less than or equal to RETRIEVAL_MAX_TOP_K",
+        path: ["RETRIEVAL_DEFAULT_TOP_K"],
       });
     }
   });

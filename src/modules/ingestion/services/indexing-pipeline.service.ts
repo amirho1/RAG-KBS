@@ -6,6 +6,7 @@ import {
   EmbeddingStatus,
 } from "../../../generated/prisma/enums.js";
 import { toPrismaNullableJson } from "../../../common/metadata/prisma-json.js";
+import { normalizeTagName } from "../../../common/metadata/name-normalization.js";
 import { PinoLoggerService } from "../../../common/logger/pino-logger.service.js";
 import { ChunkingConfigService } from "../../chunking/services/chunking-config.service.js";
 import { ChunkingService } from "../../chunking/services/chunking.service.js";
@@ -48,7 +49,9 @@ type ParsedDocumentForIndexing = {
   source?: {
     type?: string | null;
     description?: string | null;
-    tags?: Array<{ tag?: { name: string } | null }>;
+    tags?: Array<{
+      tag?: { name: string; normalizedName?: string | null } | null;
+    }>;
   } | null;
   file?: {
     fileType?: string | null;
@@ -56,7 +59,9 @@ type ParsedDocumentForIndexing = {
     title?: string | null;
     description?: string | null;
     language?: string | null;
-    tags?: Array<{ tag?: { name: string } | null }>;
+    tags?: Array<{
+      tag?: { name: string; normalizedName?: string | null } | null;
+    }>;
   } | null;
 };
 
@@ -866,11 +871,30 @@ function buildUpsertWork(input: {
  */
 function getTags(parsedDocument: ParsedDocumentForIndexing): string[] {
   const tagNames = [
-    ...(parsedDocument.source?.tags ?? []).map((tagLink) => tagLink.tag?.name),
-    ...(parsedDocument.file?.tags ?? []).map((tagLink) => tagLink.tag?.name),
+    ...(parsedDocument.source?.tags ?? []).map((tagLink) =>
+      getPayloadTagName(tagLink.tag)
+    ),
+    ...(parsedDocument.file?.tags ?? []).map((tagLink) =>
+      getPayloadTagName(tagLink.tag)
+    ),
   ].filter((name): name is string => typeof name === "string");
 
   return [...new Set(tagNames)];
+}
+
+/**
+ * Get the normalized tag name for Qdrant payload filters.
+ * @param tag - Tag record.
+ * @returns Normalized tag name.
+ */
+function getPayloadTagName(
+  tag: { name: string; normalizedName?: string | null } | null | undefined
+): string | undefined {
+  if (!tag) {
+    return undefined;
+  }
+
+  return tag.normalizedName ?? normalizeTagName(tag.name);
 }
 
 /**

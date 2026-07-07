@@ -9,6 +9,7 @@ import ingestionConfig from "./ingestion.config.js";
 import loggerConfig from "./logger.config.js";
 import qdrantConfig from "./qdrant.config.js";
 import redisConfig from "./redis.config.js";
+import retrievalConfig from "./retrieval.config.js";
 import storageConfig from "./storage.config.js";
 import { validateEnv } from "./validate-env.js";
 
@@ -37,6 +38,7 @@ import { validateEnv } from "./validate-env.js";
         qdrantConfig,
         storageConfig,
         embeddingConfig,
+        retrievalConfig,
         healthConfig,
         ingestionConfig,
         loggerConfig,

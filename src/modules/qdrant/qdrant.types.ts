@@ -8,6 +8,21 @@ export type QdrantUpsertPoint = {
   payload: QdrantPointPayload;
 };
 
+export type QdrantSearchInput = {
+  collectionName: string;
+  vector: number[];
+  topK: number;
+  scoreThreshold?: number;
+  filter?: Record<string, unknown>;
+  timeoutMs?: number;
+};
+
+export type QdrantSearchResult = {
+  id: string | number;
+  score?: number;
+  payload?: QdrantPointPayload | null;
+};
+
 export type EnsureQdrantCollectionInput = {
   qdrantName: string;
   vectorSize: number;

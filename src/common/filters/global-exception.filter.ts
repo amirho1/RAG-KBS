@@ -30,6 +30,7 @@ type ErrorResponseBody = {
   statusCode: number;
   error: string;
   message: string;
+  errorCode?: string;
   details?: ValidationErrorDetail[];
   requestId: string;
   timestamp: string;
@@ -55,6 +56,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const statusCode = getHttpStatusCode(exception);
     const details = getValidationDetails(exception);
     const message = getResponseMessage(exception, statusCode, details);
+    const errorCode = getSafeErrorCode(exception);
     const requestId =
       request.requestId ??
       this.requestContextService.getRequestId() ??
@@ -70,6 +72,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode,
       error: STATUS_CODES[statusCode] ?? "Error",
       message,
+      ...(errorCode ? { errorCode } : {}),
       ...(details.length > 0 ? { details } : {}),
       requestId,
       timestamp: new Date().toISOString(),
@@ -78,6 +81,30 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     response.status(statusCode).json(body);
   }
+}
+
+/**
+ * Get an explicit safe error code from an HTTP exception response.
+ * @param exception - Caught exception.
+ * @returns Safe error code.
+ */
+function getSafeErrorCode(exception: unknown): string | undefined {
+  if (!(exception instanceof HttpException)) {
+    return undefined;
+  }
+
+  const response = exception.getResponse();
+
+  if (
+    typeof response === "object" &&
+    response !== null &&
+    "errorCode" in response &&
+    typeof response.errorCode === "string"
+  ) {
+    return sanitizeLogMessage(response.errorCode);
+  }
+
+  return undefined;
 }
 
 /**

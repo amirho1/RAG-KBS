@@ -403,6 +403,7 @@ Table embedding_configs {
   collections qdrant_collections [not null]
   embeddings chunk_embeddings [not null]
   ingestionJobs ingestion_jobs [not null]
+  retrievalQueries retrieval_queries [not null]
   reprocessingFrom reprocessing_batches [not null]
   reprocessingTo reprocessing_batches [not null]
   retrievalProfiles retrieval_profiles [not null]
@@ -698,6 +699,8 @@ Table retrieval_queries {
   retrievalProfile retrieval_profiles
   embeddingModelId String
   embeddingModel embedding_models
+  embeddingConfigId String
+  embeddingConfig embedding_configs
   qdrantCollectionId String
   qdrantCollection qdrant_collections
   searchType RetrievalSearchType [not null]
@@ -719,13 +722,17 @@ Table retrieval_queries {
   errorMessage String
   metadata Json
   createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
   results retrieval_results [not null]
 }
 
 Table retrieval_results {
   id String [pk]
+  tenantId String [not null]
   retrievalQueryId String [not null]
   retrievalQuery retrieval_queries [not null]
+  sourceId String
+  fileId String
   chunkId String
   chunkEmbeddingId String
   chunk document_chunks
@@ -738,7 +745,9 @@ Table retrieval_results {
   rerankScore Float
   textPreview String
   payload Json
+  metadata Json
   createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
 
   indexes {
     (retrievalQueryId, rank) [unique]
@@ -1108,6 +1117,8 @@ Ref: retrieval_queries.knowledgeBaseId > knowledge_bases.id [delete: Cascade]
 Ref: retrieval_queries.retrievalProfileId > retrieval_profiles.id [delete: Set Null]
 
 Ref: retrieval_queries.embeddingModelId > embedding_models.id [delete: Set Null]
+
+Ref: retrieval_queries.embeddingConfigId > embedding_configs.id [delete: Set Null]
 
 Ref: retrieval_queries.qdrantCollectionId > qdrant_collections.id [delete: Set Null]
 

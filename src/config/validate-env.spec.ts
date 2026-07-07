@@ -135,5 +135,44 @@ describe("validateEnv", () => {
     expect(env.QUEUE_HEALTH_TIMEOUT_MS).toBe(2000);
     expect(env.SERVICE_NAME).toBe("rag-kbs-api");
     expect(env.DEFAULT_TENANT_ID).toBe("default");
+    expect(env.RETRIEVAL_DEFAULT_TOP_K).toBe(8);
+    expect(env.RETRIEVAL_MAX_TOP_K).toBe(30);
+    expect(env.RETRIEVAL_DEFAULT_SCORE_THRESHOLD).toBe(0);
+    expect(env.RETRIEVAL_STORE_QUERY_TEXT).toBe(true);
+  });
+
+  it("should validate retrieval environment variables", () => {
+    const env = validateEnv({
+      ...baseValidEnv,
+      RETRIEVAL_DEFAULT_TOP_K: "5",
+      RETRIEVAL_MAX_TOP_K: "25",
+      RETRIEVAL_DEFAULT_SCORE_THRESHOLD: "0.2",
+      RETRIEVAL_TIMEOUT_MS: "15000",
+      RETRIEVAL_STORE_QUERY_TEXT: "false",
+      RETRIEVAL_STORE_RESULTS: "false",
+      RETRIEVAL_INCLUDE_TEXT_DEFAULT: "false",
+      RETRIEVAL_INCLUDE_METADATA_DEFAULT: "false",
+    });
+
+    expect(env.RETRIEVAL_DEFAULT_TOP_K).toBe(5);
+    expect(env.RETRIEVAL_MAX_TOP_K).toBe(25);
+    expect(env.RETRIEVAL_DEFAULT_SCORE_THRESHOLD).toBe(0.2);
+    expect(env.RETRIEVAL_TIMEOUT_MS).toBe(15000);
+    expect(env.RETRIEVAL_STORE_QUERY_TEXT).toBe(false);
+    expect(env.RETRIEVAL_STORE_RESULTS).toBe(false);
+    expect(env.RETRIEVAL_INCLUDE_TEXT_DEFAULT).toBe(false);
+    expect(env.RETRIEVAL_INCLUDE_METADATA_DEFAULT).toBe(false);
+  });
+
+  it("should fail when retrieval default topK is above the maximum", () => {
+    expect(() =>
+      validateEnv({
+        ...baseValidEnv,
+        RETRIEVAL_DEFAULT_TOP_K: "31",
+        RETRIEVAL_MAX_TOP_K: "30",
+      })
+    ).toThrow(
+      "Environment validation failed:\n- RETRIEVAL_DEFAULT_TOP_K: RETRIEVAL_DEFAULT_TOP_K must be less than or equal to RETRIEVAL_MAX_TOP_K"
+    );
   });
 });

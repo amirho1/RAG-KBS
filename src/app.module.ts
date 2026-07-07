@@ -15,6 +15,7 @@ import { StorageModule } from "./modules/storage/storage.module.js";
 import { StorageObjectsModule } from "./modules/storage-objects/storage-objects.module.js";
 import { TagsModule } from "./modules/tags/tags.module.js";
 import { QdrantModule } from "./modules/qdrant/qdrant.module.js";
+import { RetrievalModule } from "./modules/retrieval/retrieval.module.js";
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { QdrantModule } from "./modules/qdrant/qdrant.module.js";
     QdrantModule,
     ChunksModule,
     IngestionModule,
+    RetrievalModule,
   ],
   controllers: [AppController],
   providers: [AppService],

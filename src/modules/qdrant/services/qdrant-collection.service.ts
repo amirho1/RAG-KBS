@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { QdrantCollectionStatus } from "../../../generated/prisma/enums.js";
 import { PrismaService } from "../../database/prisma.service.js";
 
 /**
@@ -7,6 +8,33 @@ import { PrismaService } from "../../database/prisma.service.js";
 @Injectable()
 export class QdrantCollectionService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Get the active default read collection for a tenant.
+   * @param tenantId - Tenant ID.
+   * @returns Default read collection.
+   */
+  async getDefaultReadCollection(tenantId: string) {
+    const collection = await this.prisma.qdrantCollection.findFirst({
+      where: {
+        tenantId,
+        isDefaultRead: true,
+        status: QdrantCollectionStatus.ACTIVE,
+        deletedAt: null,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    if (!collection) {
+      throw new NotFoundException(
+        "Default read Qdrant collection was not found."
+      );
+    }
+
+    return collection;
+  }
 
   /**
    * Get the active default write collection for a tenant.

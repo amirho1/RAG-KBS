@@ -4,6 +4,8 @@ import qdrantConfig from "../../../config/qdrant.config.js";
 import { qdrantDistanceMetricByPrismaMetric } from "../qdrant.constants.js";
 import type {
   EnsureQdrantCollectionInput,
+  QdrantSearchInput,
+  QdrantSearchResult,
   QdrantUpsertPoint,
 } from "../qdrant.types.js";
 import { QdrantClientService } from "./qdrant-client.service.js";
@@ -83,6 +85,31 @@ export class QdrantService {
   }
 
   /**
+   * Search Qdrant points with payloads and without vectors.
+   * @param input - Search input.
+   * @returns Scored points with safe payloads.
+   */
+  async searchPoints(input: QdrantSearchInput): Promise<QdrantSearchResult[]> {
+    const results = await this.qdrantClientService
+      .getClient()
+      .search(input.collectionName, {
+        vector: input.vector,
+        limit: input.topK,
+        filter: input.filter,
+        score_threshold: input.scoreThreshold,
+        with_payload: true,
+        with_vector: false,
+        timeout: toSeconds(input.timeoutMs ?? this.qdrant.timeoutMs),
+      });
+
+    return results.map((result) => ({
+      id: result.id,
+      score: result.score,
+      payload: isQdrantPayload(result.payload) ? result.payload : null,
+    }));
+  }
+
+  /**
    * Delete points by IDs.
    * @param collectionName - Qdrant collection name.
    * @param pointIds - Qdrant point IDs.
@@ -138,6 +165,17 @@ function chunkArray<T>(values: T[], batchSize: number): T[][] {
   }
 
   return chunks;
+}
+
+/**
+ * Check whether a Qdrant payload is an object payload.
+ * @param payload - Payload returned by Qdrant.
+ * @returns True when the payload is safe to treat as a record.
+ */
+function isQdrantPayload(payload: unknown): payload is Record<string, unknown> {
+  return (
+    typeof payload === "object" && payload !== null && !Array.isArray(payload)
+  );
 }
 
 /**
