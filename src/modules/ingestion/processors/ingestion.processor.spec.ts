@@ -23,6 +23,7 @@ type ProcessorHarness = {
   attemptService: Record<string, AsyncMock>;
   parserService: Record<string, AsyncMock>;
   storageService: Record<string, AsyncMock>;
+  indexingPipelineService: Record<string, AsyncMock>;
   logger: {
     info: jest.MockedFunction<(...args: any[]) => void>;
     warnPayload: jest.MockedFunction<(...args: any[]) => void>;
@@ -139,6 +140,7 @@ function createProcessorHarness(): ProcessorHarness {
     findCompletedParsedDocument: createAsyncMock(),
     createParsedDocument: createAsyncMock(),
     completeJob: createAsyncMock(),
+    completeIndexedJob: createAsyncMock(),
     skipUnchangedJob: createAsyncMock(),
     failJob: createAsyncMock(),
   };
@@ -154,6 +156,9 @@ function createProcessorHarness(): ProcessorHarness {
   const storageService = {
     getFileBuffer: createAsyncMock(),
   };
+  const indexingPipelineService = {
+    indexParsedDocument: createAsyncMock(),
+  };
   const logger = {
     info: jest.fn<(...args: any[]) => void>(),
     warnPayload: jest.fn<(...args: any[]) => void>(),
@@ -164,6 +169,7 @@ function createProcessorHarness(): ProcessorHarness {
     attemptService as never,
     parserService as never,
     storageService as never,
+    indexingPipelineService as never,
     logger as never,
     {
       queueName: "ingestion",
@@ -185,6 +191,7 @@ function createProcessorHarness(): ProcessorHarness {
     attemptService,
     parserService,
     storageService,
+    indexingPipelineService,
     logger,
   };
 }
@@ -194,6 +201,10 @@ describe("IngestionProcessor", () => {
 
   beforeEach(() => {
     harness = createProcessorHarness();
+    harness.indexingPipelineService.indexParsedDocument.mockResolvedValue({
+      chunkCount: 1,
+      embeddedCount: 1,
+    });
   });
 
   it("should parse and complete a text ingestion job", async () => {
@@ -222,7 +233,7 @@ describe("IngestionProcessor", () => {
     await harness.processor.process(createBullJob());
 
     expect(harness.ingestionJobService.createParsedDocument).toHaveBeenCalled();
-    expect(harness.ingestionJobService.completeJob).toHaveBeenCalledWith(
+    expect(harness.ingestionJobService.completeIndexedJob).toHaveBeenCalledWith(
       expect.objectContaining({
         jobId,
         parsedDocumentId: "parsed-1",
@@ -271,7 +282,7 @@ describe("IngestionProcessor", () => {
         mimeType: "text/markdown",
       })
     );
-    expect(harness.ingestionJobService.completeJob).toHaveBeenCalled();
+    expect(harness.ingestionJobService.completeIndexedJob).toHaveBeenCalled();
   });
 
   it("should skip unchanged parsed content when force is false", async () => {
@@ -296,7 +307,7 @@ describe("IngestionProcessor", () => {
 
     await harness.processor.process(createBullJob());
 
-    expect(harness.ingestionJobService.skipUnchangedJob).toHaveBeenCalledWith(
+    expect(harness.ingestionJobService.completeIndexedJob).toHaveBeenCalledWith(
       expect.objectContaining({
         parsedDocumentId: "parsed-existing",
       })

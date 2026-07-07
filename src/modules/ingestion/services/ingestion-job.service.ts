@@ -501,6 +501,59 @@ export class IngestionJobService {
   }
 
   /**
+   * Mark a job completed after parse, chunk, embed, and index work finishes.
+   * @param input - Indexed completion input.
+   */
+  async completeIndexedJob(input: {
+    jobId: string;
+    fileId: string;
+    sourceId: string;
+    parsedDocumentId: string;
+    contentHash: string;
+    totalChunks: number;
+    processedChunks: number;
+  }): Promise<void> {
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.ingestionJob.update({
+        where: { id: input.jobId },
+        data: {
+          status: JobStatus.COMPLETED,
+          parsedDocumentId: input.parsedDocumentId,
+          processedFiles: 1,
+          totalChunks: input.totalChunks,
+          processedChunks: input.processedChunks,
+          errorCode: null,
+          errorMessage: null,
+          errorDetails: Prisma.DbNull,
+          finishedAt: now,
+        },
+      });
+
+      await tx.documentFile.update({
+        where: { id: input.fileId },
+        data: {
+          status: FileStatus.INGESTED,
+          processingState: ProcessingState.COMPLETED,
+          contentHash: input.contentHash,
+          lastIngestedAt: now,
+          lastEmbeddedAt: now,
+        },
+      });
+
+      await tx.source.update({
+        where: { id: input.sourceId },
+        data: {
+          processingState: ProcessingState.COMPLETED,
+          contentHash: input.contentHash,
+          lastIngestedAt: now,
+        },
+      });
+    });
+  }
+
+  /**
    * Mark unchanged content as skipped.
    * @param input - Skip input.
    */

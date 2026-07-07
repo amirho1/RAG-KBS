@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { RedisModule } from "../../common/redis/redis.module.js";
 import { PrismaModule } from "../database/prisma.module.js";
+import { QdrantModule } from "../qdrant/qdrant.module.js";
 import { StorageModule } from "../storage/storage.module.js";
 import { HealthController } from "./health.controller.js";
 import { HealthService } from "./health.service.js";
@@ -14,7 +15,7 @@ import { StorageHealthIndicator } from "./indicators/storage.health-indicator.js
  * Application health check module.
  */
 @Module({
-  imports: [PrismaModule, RedisModule, StorageModule],
+  imports: [PrismaModule, RedisModule, StorageModule, QdrantModule],
   controllers: [HealthController],
   providers: [
     HealthService,

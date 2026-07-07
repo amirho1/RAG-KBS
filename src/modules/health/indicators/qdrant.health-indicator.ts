@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { ConfigType } from "@nestjs/config";
-import qdrantConfig from "../../../config/qdrant.config.js";
 import healthConfig from "../../../config/health.config.js";
+import { QdrantService } from "../../qdrant/services/qdrant.service.js";
 import type { DependencyHealthResult } from "../types/health.types.js";
 import {
   buildErrorDependencyResult,
@@ -21,8 +21,7 @@ export class QdrantHealthIndicator {
   private readonly logger = new Logger(QdrantHealthIndicator.name);
 
   constructor(
-    @Inject(qdrantConfig.KEY)
-    private readonly qdrant: ConfigType<typeof qdrantConfig>,
+    private readonly qdrantService: QdrantService,
     @Inject(healthConfig.KEY)
     private readonly health: ConfigType<typeof healthConfig>
   ) {}
@@ -36,7 +35,7 @@ export class QdrantHealthIndicator {
 
     try {
       await runWithTimeout(
-        this.probeQdrantReadiness(),
+        this.qdrantService.healthCheck(),
         this.health.qdrantTimeoutMs,
         dependencyName
       );
@@ -47,25 +46,6 @@ export class QdrantHealthIndicator {
       this.logger.error({ dependency: dependencyName, message });
 
       return buildErrorDependencyResult(dependencyName, failureMessage);
-    }
-  }
-
-  /**
-   * Call the Qdrant readiness endpoint.
-   * @returns Resolves when Qdrant is ready.
-   */
-  private async probeQdrantReadiness(): Promise<void> {
-    const readinessUrl = new URL("/readyz", this.qdrant.url).toString();
-    const headers: Record<string, string> = {};
-
-    if (this.qdrant.apiKey.length > 0) {
-      headers["api-key"] = this.qdrant.apiKey;
-    }
-
-    const response = await fetch(readinessUrl, { headers });
-
-    if (!response.ok) {
-      throw new Error(`Qdrant readiness check returned ${response.status}`);
     }
   }
 }

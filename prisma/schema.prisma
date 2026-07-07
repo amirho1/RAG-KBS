@@ -700,15 +700,17 @@ model ChunkingConfig {
   /// Tokenizer name matters because token counts differ by model.
   tokenizer String? @db.VarChar(128)
 
-  preserveHeadings Boolean @default(true)
-  preserveTables   Boolean @default(false)
+  preserveHeadings   Boolean @default(true)
+  preserveParagraphs Boolean @default(true)
+  preserveTables     Boolean @default(false)
 
   config    Json?
   isDefault Boolean @default(false)
   isActive  Boolean @default(true)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   chunks           DocumentChunk[]
   embeddingConfigs EmbeddingConfig[]
@@ -716,6 +718,7 @@ model ChunkingConfig {
   @@unique([tenantId, name])
   @@index([tenantId, isDefault])
   @@index([createdAt])
+  @@index([deletedAt])
   @@map("chunking_configs")
 }
 
@@ -769,6 +772,7 @@ model DocumentChunk {
   retrievalResults RetrievalResult[]
 
   @@unique([parsedDocumentId, chunkIndex])
+  @@unique([parsedDocumentId, chunkingConfigId, contentHash])
   @@index([tenantId, organizationId, projectId])
   @@index([knowledgeBaseId, status])
   @@index([sourceId, status])

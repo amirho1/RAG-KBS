@@ -8,17 +8,20 @@ import type { Prisma } from "../../generated/prisma/client.js";
 const defaultTenantId = "default";
 const defaultEmbeddingModel = "text-embedding-3-small";
 const defaultEmbeddingDimension = 1536;
-const defaultQdrantCollection = "rag_kbs";
-const defaultChunkingConfigName = "default-recursive-text";
-const defaultEmbeddingConfigName = "default-embedding-config";
-const defaultTokenizer = "cl100k_base";
+const defaultQdrantCollection = "rag_kbs_default";
+const defaultChunkingConfigName = "Default Recursive Text Chunking";
+const defaultEmbeddingConfigName = "Default Embedding Config";
+const defaultTokenizer = "APPROXIMATE";
 
 export type DefaultSeedConfig = {
   tenantId: string;
   embeddingProvider: EmbeddingProvider;
   embeddingModel: string;
   embeddingDimension: number;
+  embeddingDistanceMetric: DistanceMetric;
   qdrantCollection: string;
+  qdrantVectorSize: number;
+  qdrantDistanceMetric: DistanceMetric;
 };
 
 export type DefaultChunkingConfigData = {
@@ -29,6 +32,7 @@ export type DefaultChunkingConfigData = {
   chunkOverlap: number;
   tokenizer: string;
   preserveHeadings: boolean;
+  preserveParagraphs: boolean;
   preserveTables: boolean;
   isDefault: boolean;
   isActive: boolean;
@@ -83,6 +87,26 @@ export function resolveDefaultTenantId(env: NodeJS.ProcessEnv): string {
 }
 
 /**
+ * Resolve a distance metric enum value from environment text.
+ * @param metric - The configured distance metric.
+ * @returns The matching distance metric.
+ */
+export function resolveDistanceMetric(
+  metric: string | undefined
+): DistanceMetric {
+  const normalizedMetric = metric?.trim().toUpperCase();
+
+  if (
+    normalizedMetric &&
+    Object.values(DistanceMetric).includes(normalizedMetric as DistanceMetric)
+  ) {
+    return normalizedMetric as DistanceMetric;
+  }
+
+  return DistanceMetric.COSINE;
+}
+
+/**
  * Resolve an embedding provider enum value from an environment value.
  * @param provider - The configured provider name.
  * @returns The matching embedding provider, or CUSTOM for unknown providers.
@@ -126,10 +150,18 @@ export function resolveDefaultSeedConfig(
       env.EMBEDDING_DIMENSION,
       defaultEmbeddingDimension
     ),
+    embeddingDistanceMetric: resolveDistanceMetric(
+      env.EMBEDDING_DISTANCE_METRIC
+    ),
     qdrantCollection: resolveTextValue(
-      env.QDRANT_COLLECTION,
+      env.QDRANT_COLLECTION_NAME ?? env.QDRANT_COLLECTION,
       defaultQdrantCollection
     ),
+    qdrantVectorSize: resolvePositiveInteger(
+      env.QDRANT_VECTOR_SIZE ?? env.EMBEDDING_DIMENSION,
+      defaultEmbeddingDimension
+    ),
+    qdrantDistanceMetric: resolveDistanceMetric(env.QDRANT_DISTANCE_METRIC),
   };
 }
 
@@ -144,11 +176,12 @@ export function buildDefaultChunkingConfigData(
   return {
     tenantId,
     name: defaultChunkingConfigName,
-    strategy: "recursive_text",
+    strategy: "RECURSIVE_TEXT",
     chunkSize: 800,
-    chunkOverlap: 100,
+    chunkOverlap: 120,
     tokenizer: defaultTokenizer,
     preserveHeadings: true,
+    preserveParagraphs: true,
     preserveTables: false,
     isDefault: true,
     isActive: true,
@@ -171,7 +204,7 @@ export function buildDefaultEmbeddingModelData(
     modelName: seedConfig.embeddingModel,
     displayName: seedConfig.embeddingModel,
     dimension: seedConfig.embeddingDimension,
-    distanceMetric: DistanceMetric.COSINE,
+    distanceMetric: seedConfig.embeddingDistanceMetric,
     tokenizer: defaultTokenizer,
     isDefault: true,
     isActive: true,
@@ -224,8 +257,8 @@ export function buildDefaultQdrantCollectionData(
     embeddingConfigId,
     name: seedConfig.qdrantCollection,
     alias: seedConfig.qdrantCollection,
-    vectorSize: seedConfig.embeddingDimension,
-    distanceMetric: DistanceMetric.COSINE,
+    vectorSize: seedConfig.qdrantVectorSize,
+    distanceMetric: seedConfig.qdrantDistanceMetric,
     status: QdrantCollectionStatus.ACTIVE,
     isDefaultRead: true,
     isDefaultWrite: true,

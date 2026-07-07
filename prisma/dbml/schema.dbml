@@ -284,12 +284,14 @@ Table chunking_configs {
   chunkOverlap Int [not null, default: 0]
   tokenizer String [note: 'Tokenizer name matters because token counts differ by model.']
   preserveHeadings Boolean [not null, default: true]
+  preserveParagraphs Boolean [not null, default: true]
   preserveTables Boolean [not null, default: false]
   config Json
   isDefault Boolean [not null, default: false]
   isActive Boolean [not null, default: true]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
+  deletedAt DateTime
   chunks document_chunks [not null]
   embeddingConfigs embedding_configs [not null]
 
@@ -335,6 +337,7 @@ Table document_chunks {
 
   indexes {
     (parsedDocumentId, chunkIndex) [unique]
+    (parsedDocumentId, chunkingConfigId, contentHash) [unique]
   }
 }
 

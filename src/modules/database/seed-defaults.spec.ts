@@ -10,6 +10,7 @@ import {
   buildDefaultQdrantCollectionData,
   resolveDefaultSeedConfig,
   resolveDefaultTenantId,
+  resolveDistanceMetric,
   resolveEmbeddingProvider,
 } from "./seed-defaults.js";
 
@@ -34,13 +35,22 @@ describe("seed defaults", () => {
     );
   });
 
+  it("should resolve supported distance metrics", () => {
+    expect(resolveDistanceMetric("Cosine")).toBe(DistanceMetric.COSINE);
+    expect(resolveDistanceMetric("dot")).toBe(DistanceMetric.DOT);
+    expect(resolveDistanceMetric("unknown")).toBe(DistanceMetric.COSINE);
+  });
+
   it("should resolve the default seed config from environment variables", () => {
     const seedConfig = resolveDefaultSeedConfig({
       DEFAULT_TENANT_ID: "tenant-a",
       EMBEDDING_PROVIDER: "openai",
       EMBEDDING_MODEL: "text-embedding-3-large",
       EMBEDDING_DIMENSION: "3072",
-      QDRANT_COLLECTION: "tenant_a_vectors",
+      EMBEDDING_DISTANCE_METRIC: "Dot",
+      QDRANT_COLLECTION_NAME: "tenant_a_vectors",
+      QDRANT_VECTOR_SIZE: "3072",
+      QDRANT_DISTANCE_METRIC: "Dot",
     });
 
     expect(seedConfig).toEqual({
@@ -48,7 +58,10 @@ describe("seed defaults", () => {
       embeddingProvider: EmbeddingProvider.OPENAI,
       embeddingModel: "text-embedding-3-large",
       embeddingDimension: 3072,
+      embeddingDistanceMetric: DistanceMetric.DOT,
       qdrantCollection: "tenant_a_vectors",
+      qdrantVectorSize: 3072,
+      qdrantDistanceMetric: DistanceMetric.DOT,
     });
   });
 
@@ -57,11 +70,11 @@ describe("seed defaults", () => {
 
     expect(chunkingConfigData).toMatchObject({
       tenantId: "tenant-a",
-      name: "default-recursive-text",
-      strategy: "recursive_text",
+      name: "Default Recursive Text Chunking",
+      strategy: "RECURSIVE_TEXT",
       chunkSize: 800,
-      chunkOverlap: 100,
-      tokenizer: "cl100k_base",
+      chunkOverlap: 120,
+      tokenizer: "APPROXIMATE",
       isDefault: true,
       isActive: true,
     });
@@ -73,7 +86,7 @@ describe("seed defaults", () => {
       EMBEDDING_PROVIDER: "openai",
       EMBEDDING_MODEL: "text-embedding-3-small",
       EMBEDDING_DIMENSION: "1536",
-      QDRANT_COLLECTION: "rag_kbs_test",
+      QDRANT_COLLECTION_NAME: "rag_kbs_test",
     });
 
     const embeddingModelData = buildDefaultEmbeddingModelData(seedConfig);
@@ -98,7 +111,7 @@ describe("seed defaults", () => {
     });
     expect(embeddingConfigData).toMatchObject({
       tenantId: "tenant-a",
-      name: "default-embedding-config",
+      name: "Default Embedding Config",
       embeddingModelId: "embedding-model-id",
       chunkingConfigId: "chunking-config-id",
       isDefault: true,

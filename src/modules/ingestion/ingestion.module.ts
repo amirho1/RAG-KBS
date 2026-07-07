@@ -1,5 +1,8 @@
 import { Module } from "@nestjs/common";
+import { ChunkingModule } from "../chunking/chunking.module.js";
 import { PrismaModule } from "../database/prisma.module.js";
+import { EmbeddingsModule } from "../embeddings/embeddings.module.js";
+import { QdrantModule } from "../qdrant/qdrant.module.js";
 import { IngestionController } from "./ingestion.controller.js";
 import { MarkdownParser } from "./parsers/markdown.parser.js";
 import { TextParser } from "./parsers/text.parser.js";
@@ -9,12 +12,13 @@ import { IngestionIdempotencyService } from "./services/ingestion-idempotency.se
 import { IngestionJobService } from "./services/ingestion-job.service.js";
 import { IngestionQueueService } from "./services/ingestion-queue.service.js";
 import { IngestionService } from "./services/ingestion.service.js";
+import { IndexingPipelineService } from "./services/indexing-pipeline.service.js";
 
 /**
  * File ingestion API module.
  */
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ChunkingModule, EmbeddingsModule, QdrantModule],
   controllers: [IngestionController],
   providers: [
     TextParser,
@@ -24,6 +28,7 @@ import { IngestionService } from "./services/ingestion.service.js";
     IngestionQueueService,
     IngestionJobService,
     IngestionAttemptService,
+    IndexingPipelineService,
     IngestionService,
   ],
   exports: [
@@ -31,6 +36,7 @@ import { IngestionService } from "./services/ingestion.service.js";
     IngestionAttemptService,
     IngestionJobService,
     IngestionQueueService,
+    IndexingPipelineService,
   ],
 })
 export class IngestionModule {}

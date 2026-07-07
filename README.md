@@ -21,6 +21,9 @@ isolated from file parsing, chunking, embedding, and vector indexing work.
 - BullMQ
 - MinIO or S3-compatible storage
 - Docker and Docker Compose
+- LangChain
+- OpenAI embeddings through `@langchain/openai`
+- Qdrant SDK through `@qdrant/js-client-rest`
 - Jest
 - Zod
 
@@ -94,6 +97,9 @@ export class ExampleQueueService {
 | Redis     | `REDIS_PORT`                                                                        | Positive integer                           |
 | Qdrant    | `QDRANT_URL`                                                                        | Qdrant HTTP URL                            |
 | Qdrant    | `QDRANT_API_KEY`                                                                    | May be empty for local Qdrant without auth |
+| Qdrant    | `QDRANT_COLLECTION_NAME`                                                            | Default Qdrant collection name             |
+| Qdrant    | `QDRANT_VECTOR_SIZE`                                                                | Must match embedding dimension             |
+| Qdrant    | `QDRANT_DISTANCE_METRIC`                                                            | `Cosine`, `Dot`, `Euclid`, or `Manhattan`  |
 | Storage   | `STORAGE_DRIVER`                                                                    | `local` or `s3`                            |
 | Storage   | `LOCAL_STORAGE_PATH`                                                                | Required when `STORAGE_DRIVER=local`       |
 | Storage   | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Required when `STORAGE_DRIVER=s3`          |
@@ -101,6 +107,9 @@ export class ExampleQueueService {
 | Embedding | `EMBEDDING_PROVIDER`                                                                | Configurable provider name (not hardcoded) |
 | Embedding | `EMBEDDING_MODEL`                                                                   | Model identifier for the provider          |
 | Embedding | `EMBEDDING_DIMENSION`                                                               | Positive integer vector size               |
+| Embedding | `OPENAI_API_KEY`                                                                    | Required when provider is `openai`         |
+| Chunking  | `CHUNKING_DEFAULT_SIZE`                                                             | Default chunk token target                 |
+| Chunking  | `CHUNKING_DEFAULT_OVERLAP`                                                          | Default chunk overlap                      |
 | Ingestion | `MAX_UPLOAD_SIZE_MB`                                                                | Positive integer upload limit              |
 | Ingestion | `INGESTION_QUEUE_NAME`                                                              | BullMQ queue name                          |
 | Ingestion | `INGESTION_CONCURRENCY`                                                             | Positive integer worker concurrency        |
@@ -113,9 +122,12 @@ export class ExampleQueueService {
 | Ingestion | `INGESTION_TEXT_PREVIEW_LENGTH`                                                     | Parsed document preview length             |
 
 Optional variables with defaults include `DEFAULT_TENANT_ID`, `REDIS_PASSWORD`, `REDIS_URL`,
-`QDRANT_COLLECTION`, `EMBEDDING_API_KEY`, `BULLMQ_QUEUE_PREFIX`, `LOG_LEVEL`, `LOG_FORMAT`,
-`LOG_DIR`, `LOG_ROTATION_ENABLED`, `LOG_RETENTION_DAYS`, `REQUEST_LOGGING_ENABLED`,
-`REQUEST_BODY_LOGGING_ENABLED`, `S3_FORCE_PATH_STYLE`, and `WORKER_READY_FILE`.
+`QDRANT_COLLECTION`, `QDRANT_UPSERT_BATCH_SIZE`, `QDRANT_TIMEOUT_MS`, `EMBEDDING_API_KEY`,
+`EMBEDDING_BATCH_SIZE`, `EMBEDDING_TIMEOUT_MS`, `EMBEDDING_MAX_RETRIES`, `OPENAI_CHAT_MODEL`,
+`CHUNKING_TEXT_PREVIEW_LENGTH`, `CHUNKING_MAX_CHUNKS_PER_DOCUMENT`, `BULLMQ_QUEUE_PREFIX`,
+`LOG_LEVEL`, `LOG_FORMAT`, `LOG_DIR`, `LOG_ROTATION_ENABLED`, `LOG_RETENTION_DAYS`,
+`REQUEST_LOGGING_ENABLED`, `REQUEST_BODY_LOGGING_ENABLED`, `S3_FORCE_PATH_STYLE`, and
+`WORKER_READY_FILE`.
 
 ### Logging variables
 
@@ -345,6 +357,118 @@ The API and worker both use the reusable `PrismaModule` and `PrismaService` from
 `src/modules/database`. PostgreSQL remains the source of truth for RAG metadata, lifecycle state,
 checksums, idempotency keys, chunk metadata, and Qdrant point references. Qdrant stores vectors and
 search payloads only; vector values are not stored in PostgreSQL.
+
+## Section 5 Indexing Pipeline
+
+Section 5 adds the first end-to-end indexing path after a document has been parsed. The worker now
+continues past `ParsedDocument` creation and runs:
+
+```txt
+ParsedDocument -> DocumentChunk metadata -> embeddings -> Qdrant points -> ChunkEmbedding metadata
+```
+
+The modules are intentionally focused:
+
+- `ChunkingModule`: loads the default chunking config and uses LangChain recursive text splitting
+  with Markdown heading and paragraph-aware separators.
+- `EmbeddingsModule`: owns the provider abstraction, deterministic local dummy provider, and
+  `LangChainOpenAiService` using `ChatOpenAI` and `OpenAIEmbeddings` from `@langchain/openai`.
+- `QdrantModule`: owns `QdrantClient` from `@qdrant/js-client-rest` and exposes collection ensure,
+  point upsert, point delete, filter delete, and health operations.
+- `ChunksModule`: exposes safe read-only chunk debugging endpoints.
+
+### Defaults
+
+The idempotent seed creates:
+
+- `Default Recursive Text Chunking`: `RECURSIVE_TEXT`, size `800`, overlap `120`, tokenizer
+  `APPROXIMATE`, headings and paragraphs preserved.
+- `Default Embedding Config`: connects the default chunking config to the configured embedding
+  model.
+- Default Qdrant collection metadata using `QDRANT_COLLECTION_NAME`, vector size, and distance
+  metric.
+
+### Qdrant Payloads
+
+PostgreSQL stores chunk metadata, previews, hashes, statuses, and Qdrant point references. Full
+chunk text and vectors are not stored in PostgreSQL. Qdrant payloads include full text plus safe
+filter metadata:
+
+```ts
+{
+  (tenantId,
+    knowledgeBaseId,
+    sourceId,
+    fileId,
+    parsedDocumentId,
+    chunkId,
+    chunkEmbeddingId,
+    qdrantCollectionId,
+    sourceType,
+    fileType,
+    mimeType,
+    language,
+    tags,
+    title,
+    description,
+    chunkIndex,
+    pageStart,
+    pageEnd,
+    headingPath,
+    text,
+    textPreview,
+    contentHash,
+    embeddedContentHash,
+    createdAt,
+    updatedAt);
+}
+```
+
+### Debug Endpoints
+
+These endpoints require tenant scoping and never return full chunk text or vector values:
+
+```http
+GET /api/v1/chunks
+GET /api/v1/chunks/:id
+GET /api/v1/files/:fileId/chunks
+GET /api/v1/chunks/:id/embedding
+```
+
+### Environment Variables
+
+Section 5 adds these variables:
+
+```env
+CHUNKING_DEFAULT_SIZE=800
+CHUNKING_DEFAULT_OVERLAP=120
+CHUNKING_TEXT_PREVIEW_LENGTH=1000
+CHUNKING_MAX_CHUNKS_PER_DOCUMENT=10000
+
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIMENSION=1536
+EMBEDDING_DISTANCE_METRIC=Cosine
+EMBEDDING_BATCH_SIZE=64
+EMBEDDING_TIMEOUT_MS=30000
+EMBEDDING_MAX_RETRIES=3
+OPENAI_API_KEY=
+OPENAI_CHAT_MODEL=gpt-4o-mini
+
+QDRANT_COLLECTION_NAME=rag_kbs_default
+QDRANT_VECTOR_SIZE=1536
+QDRANT_DISTANCE_METRIC=Cosine
+QDRANT_UPSERT_BATCH_SIZE=64
+QDRANT_TIMEOUT_MS=30000
+```
+
+`EMBEDDING_API_KEY` and `QDRANT_COLLECTION` remain backward-compatible aliases. Prefer
+`OPENAI_API_KEY` and `QDRANT_COLLECTION_NAME` for new deployments.
+
+### Not Included
+
+This section does not add authentication, authorization, users, roles, billing, frontend code, chat
+UI, retrieval endpoints, hybrid search, reranking, collection migration, or reprocessing.
 
 ## Core Metadata Modules
 

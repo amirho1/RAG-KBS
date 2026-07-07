@@ -21,6 +21,7 @@ const baseValidEnv = {
   EMBEDDING_PROVIDER: "openai",
   EMBEDDING_MODEL: "text-embedding-3-small",
   EMBEDDING_DIMENSION: "1536",
+  OPENAI_API_KEY: "test-placeholder",
   MAX_UPLOAD_SIZE_MB: "50",
   ALLOWED_UPLOAD_MIME_TYPES:
     "application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

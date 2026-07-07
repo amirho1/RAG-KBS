@@ -6,6 +6,36 @@ const storageDriverSchema = z.enum(["local", "s3"]);
 
 const logFormatSchema = z.enum(["json", "pretty"]);
 
+const embeddingProviderSchema = z.enum([
+  "openai",
+  "azure-openai",
+  "azure_openai",
+  "anthropic",
+  "google",
+  "cohere",
+  "voyage",
+  "mistral",
+  "huggingface",
+  "ollama",
+  "local",
+  "custom",
+]);
+
+const distanceMetricSchema = z.enum([
+  "Cosine",
+  "Dot",
+  "Euclid",
+  "Manhattan",
+  "COSINE",
+  "DOT",
+  "EUCLID",
+  "MANHATTAN",
+  "cosine",
+  "dot",
+  "euclid",
+  "manhattan",
+]);
+
 const positiveIntSchema = z.coerce.number().int().positive();
 const uploadMimeTypePattern =
   /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$/;
@@ -72,6 +102,11 @@ export const envSchema = z
     QDRANT_URL: z.string().min(1, "QDRANT_URL is required"),
     QDRANT_API_KEY: z.string().default(""),
     QDRANT_COLLECTION: z.string().optional().default("rag_kbs"),
+    QDRANT_COLLECTION_NAME: z.string().optional(),
+    QDRANT_VECTOR_SIZE: positiveIntSchema.optional(),
+    QDRANT_DISTANCE_METRIC: distanceMetricSchema.optional().default("Cosine"),
+    QDRANT_UPSERT_BATCH_SIZE: positiveIntSchema.optional().default(64),
+    QDRANT_TIMEOUT_MS: positiveIntSchema.optional().default(30_000),
     STORAGE_DRIVER: storageDriverSchema,
     LOCAL_STORAGE_PATH: z.string().optional().default(""),
     S3_ENDPOINT: z.string().optional().default(""),
@@ -85,10 +120,34 @@ export const envSchema = z
       .default("false")
       .transform((value) => value === "true"),
     ALLOWED_UPLOAD_MIME_TYPES: allowedUploadMimeTypesSchema,
-    EMBEDDING_PROVIDER: z.string().min(1, "EMBEDDING_PROVIDER is required"),
+    CHUNKING_DEFAULT_SIZE: positiveIntSchema.optional().default(800),
+    CHUNKING_DEFAULT_OVERLAP: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .default(120),
+    CHUNKING_TEXT_PREVIEW_LENGTH: positiveIntSchema.optional().default(1_000),
+    CHUNKING_MAX_CHUNKS_PER_DOCUMENT: positiveIntSchema
+      .optional()
+      .default(10_000),
+    EMBEDDING_PROVIDER: embeddingProviderSchema,
     EMBEDDING_MODEL: z.string().min(1, "EMBEDDING_MODEL is required"),
     EMBEDDING_DIMENSION: positiveIntSchema,
+    EMBEDDING_DISTANCE_METRIC: distanceMetricSchema
+      .optional()
+      .default("Cosine"),
+    EMBEDDING_BATCH_SIZE: positiveIntSchema.optional().default(64),
+    EMBEDDING_TIMEOUT_MS: positiveIntSchema.optional().default(30_000),
+    EMBEDDING_MAX_RETRIES: z.coerce.number().int().min(0).optional().default(3),
     EMBEDDING_API_KEY: z.string().optional().default(""),
+    OPENAI_API_KEY: z.string().optional().default(""),
+    OPENAI_CHAT_MODEL: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .default("gpt-4o-mini"),
     MAX_UPLOAD_SIZE_MB: positiveIntSchema,
     INGESTION_QUEUE_NAME: z.string().min(1, "INGESTION_QUEUE_NAME is required"),
     INGESTION_CONCURRENCY: positiveIntSchema,
@@ -152,6 +211,31 @@ export const envSchema = z
           });
         }
       }
+    }
+
+    if (
+      data.EMBEDDING_PROVIDER === "openai" &&
+      data.OPENAI_API_KEY.trim() === "" &&
+      data.EMBEDDING_API_KEY.trim() === ""
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "OPENAI_API_KEY or EMBEDDING_API_KEY is required when EMBEDDING_PROVIDER=openai",
+        path: ["OPENAI_API_KEY"],
+      });
+    }
+
+    const qdrantVectorSize =
+      data.QDRANT_VECTOR_SIZE ?? data.EMBEDDING_DIMENSION;
+
+    if (qdrantVectorSize !== data.EMBEDDING_DIMENSION) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "QDRANT_VECTOR_SIZE must match EMBEDDING_DIMENSION for the default collection",
+        path: ["QDRANT_VECTOR_SIZE"],
+      });
     }
   });
 

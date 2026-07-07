@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../src/generated/prisma/client.js";
 import { config } from "dotenv";
 import { Pool } from "pg";
+import { PrismaClient } from "../src/generated/prisma/client.js";
 import {
   buildDefaultChunkingConfigData,
   buildDefaultEmbeddingConfigData,
@@ -63,6 +63,7 @@ export async function seedDefaultRecords(
       chunkOverlap: chunkingConfigData.chunkOverlap,
       tokenizer: chunkingConfigData.tokenizer,
       preserveHeadings: chunkingConfigData.preserveHeadings,
+      preserveParagraphs: chunkingConfigData.preserveParagraphs,
       preserveTables: chunkingConfigData.preserveTables,
       config: chunkingConfigData.config,
       isDefault: true,

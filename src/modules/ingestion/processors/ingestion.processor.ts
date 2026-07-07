@@ -19,6 +19,7 @@ import {
 import { DocumentParserService } from "../services/document-parser.service.js";
 import { IngestionAttemptService } from "../services/ingestion-attempt.service.js";
 import { IngestionJobService } from "../services/ingestion-job.service.js";
+import { IndexingPipelineService } from "../services/indexing-pipeline.service.js";
 
 type ProcessableJobRecord = {
   id: string;
@@ -75,6 +76,7 @@ export class IngestionProcessor {
     private readonly attemptService: IngestionAttemptService,
     private readonly parserService: DocumentParserService,
     private readonly storageService: StorageService,
+    private readonly indexingPipelineService: IndexingPipelineService,
     private readonly logger: PinoLoggerService,
     @Inject(ingestionConfig.KEY)
     private readonly ingestion: ConfigType<typeof ingestionConfig>
@@ -207,16 +209,31 @@ export class IngestionProcessor {
       }));
 
     if (existingParsedDocument) {
-      await this.ingestionJobService.skipUnchangedJob({
+      const indexingResult =
+        await this.indexingPipelineService.indexParsedDocument({
+          tenantId: dbJob.tenantId,
+          parsedDocumentId: existingParsedDocument.id,
+          ingestionJobId: dbJob.id,
+          bullJobId: job.id,
+          queueName: job.queueName,
+          force: dbJob.force,
+        });
+
+      await this.ingestionJobService.completeIndexedJob({
         jobId: dbJob.id,
         fileId: dbJob.fileId,
         sourceId: dbJob.sourceId,
         parsedDocumentId: existingParsedDocument.id,
         contentHash: parsedDocument.contentHash,
+        totalChunks: indexingResult.chunkCount,
+        processedChunks: indexingResult.embeddedCount,
       });
       await this.attemptService.completeAttempt(attempt, {
         skippedUnchanged: true,
+        indexedExistingParsedDocument: true,
         contentHash: parsedDocument.contentHash,
+        chunkCount: indexingResult.chunkCount,
+        embeddedCount: indexingResult.embeddedCount,
       });
 
       this.logger.info({
@@ -231,7 +248,7 @@ export class IngestionProcessor {
         mimeType: parsedDocument.mimeType,
         checksumSha256: file.checksumSha256,
         contentHash: parsedDocument.contentHash,
-        status: JobStatus.SKIPPED,
+        status: JobStatus.COMPLETED,
       });
       return;
     }
@@ -258,18 +275,32 @@ export class IngestionProcessor {
         metadata: parsedDocument.metadata,
       });
 
-    await this.ingestionJobService.completeJob({
+    const indexingResult =
+      await this.indexingPipelineService.indexParsedDocument({
+        tenantId: dbJob.tenantId,
+        parsedDocumentId: createdParsedDocument.id,
+        ingestionJobId: dbJob.id,
+        bullJobId: job.id,
+        queueName: job.queueName,
+        force: dbJob.force,
+      });
+
+    await this.ingestionJobService.completeIndexedJob({
       jobId: dbJob.id,
       fileId: dbJob.fileId,
       sourceId: dbJob.sourceId,
       parsedDocumentId: createdParsedDocument.id,
       contentHash: parsedDocument.contentHash,
+      totalChunks: indexingResult.chunkCount,
+      processedChunks: indexingResult.embeddedCount,
     });
     await this.attemptService.completeAttempt(attempt, {
       contentHash: parsedDocument.contentHash,
       charCount: parsedDocument.charCount,
       textBytes: parsedDocument.textBytes,
       fullTextStored: parsedDocument.extractedText !== null,
+      chunkCount: indexingResult.chunkCount,
+      embeddedCount: indexingResult.embeddedCount,
     });
 
     this.logger.info({
