@@ -162,7 +162,14 @@ function createStorageService(maxUploadSizeMb = 1): ServiceHarness {
     },
     {
       queueName: "ingestion",
-      concurrency: 2,
+      concurrency: 3,
+      maxAttempts: 3,
+      backoffDelayMs: 5_000,
+      removeOnCompleteCount: 1_000,
+      removeOnFailCount: 5_000,
+      jobTimeoutMs: 120_000,
+      maxTextContentBytes: 1_048_576,
+      textPreviewLength: 1_000,
       maxUploadSizeMb,
     }
   );

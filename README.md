@@ -104,6 +104,13 @@ export class ExampleQueueService {
 | Ingestion | `MAX_UPLOAD_SIZE_MB`                                                                | Positive integer upload limit              |
 | Ingestion | `INGESTION_QUEUE_NAME`                                                              | BullMQ queue name                          |
 | Ingestion | `INGESTION_CONCURRENCY`                                                             | Positive integer worker concurrency        |
+| Ingestion | `INGESTION_MAX_ATTEMPTS`                                                            | Positive integer BullMQ retry limit        |
+| Ingestion | `INGESTION_BACKOFF_DELAY_MS`                                                        | Positive integer retry backoff delay       |
+| Ingestion | `INGESTION_REMOVE_ON_COMPLETE_COUNT`                                                | Completed BullMQ jobs to retain            |
+| Ingestion | `INGESTION_REMOVE_ON_FAIL_COUNT`                                                    | Failed BullMQ jobs to retain               |
+| Ingestion | `INGESTION_JOB_TIMEOUT_MS`                                                          | Worker-side processing timeout             |
+| Ingestion | `INGESTION_MAX_TEXT_CONTENT_BYTES`                                                  | Max parsed text stored in PostgreSQL       |
+| Ingestion | `INGESTION_TEXT_PREVIEW_LENGTH`                                                     | Parsed document preview length             |
 
 Optional variables with defaults include `DEFAULT_TENANT_ID`, `REDIS_PASSWORD`, `REDIS_URL`,
 `QDRANT_COLLECTION`, `EMBEDDING_API_KEY`, `BULLMQ_QUEUE_PREFIX`, `LOG_LEVEL`, `LOG_FORMAT`,
@@ -134,8 +141,8 @@ ship to log processors.
   `STORAGE_DRIVER=s3`, all S3 variables must be non-empty.
 - **`STORAGE_DRIVER=local`** remains valid for edge cases but is not the default. In Docker, set
   `LOCAL_STORAGE_PATH=/app/storage` so the API and worker share the mounted local storage volume.
-- Numeric variables (`PORT`, `REDIS_PORT`, `EMBEDDING_DIMENSION`, `MAX_UPLOAD_SIZE_MB`,
-  `INGESTION_CONCURRENCY`) are coerced from strings at startup.
+- Numeric variables (`PORT`, `REDIS_PORT`, `EMBEDDING_DIMENSION`, `MAX_UPLOAD_SIZE_MB`, and all
+  `INGESTION_*` numeric settings) are coerced from strings at startup.
 
 See [`.env.example`](./.env.example) for the full list of application variables.
 
@@ -395,15 +402,68 @@ Tag names are normalized before saving, and `normalizedName` is unique per tenan
 endpoints validate that both the target record and the tag belong to the same tenant. Duplicate
 source/file tag assignments return `409 Conflict`, and missing assignments return `404`.
 
-Source and file read/list responses include tag summaries for non-deleted tags. Future ingestion
-workers can copy these tag names into Qdrant payloads for metadata-filtered retrieval.
+Source and file read/list responses include tag summaries for non-deleted tags. Future chunking and
+vector indexing workers can copy these tag names into Qdrant payloads for metadata-filtered
+retrieval.
 
-### Future ingestion connection
+### Ingestion
 
-A typical ingestion flow starts by creating a knowledge base, source, storage object metadata, and
-document file metadata. Future ingestion modules can then create ingestion jobs, parse the stored
-object, create chunks, embed them, and upsert Qdrant points while preserving these metadata IDs as
-the traceability backbone.
+The ingestion module creates tenant-scoped database jobs and pushes minimal BullMQ payloads for the
+worker. This first production milestone supports only `text/plain`, `text/markdown`, and
+`text/x-markdown`. PDF, DOCX, CSV, JSON, chunking, embeddings, and Qdrant writes are intentionally
+not part of this version.
+
+Available endpoints:
+
+```txt
+POST /api/v1/files/:id/ingest
+GET /api/v1/ingestion-jobs/:id?tenantId=tenant_acme
+GET /api/v1/ingestion-jobs?tenantId=tenant_acme
+POST /api/v1/ingestion-jobs/:id/retry?tenantId=tenant_acme
+POST /api/v1/ingestion-jobs/:id/cancel?tenantId=tenant_acme
+```
+
+Create an ingestion job:
+
+```http
+POST /api/v1/files/113d5fe3-927e-428d-9b55-557a6f776ed9/ingest
+content-type: application/json
+
+{
+  "tenantId": "tenant_acme",
+  "force": false,
+  "reason": "INITIAL_INGESTION",
+  "metadata": {
+    "requestedBy": "api-gateway"
+  }
+}
+```
+
+Lifecycle:
+
+```txt
+PENDING -> QUEUED -> PROCESSING -> COMPLETED
+                         └──────-> RETRYING -> PROCESSING
+                         └──────-> FAILED
+PENDING/QUEUED -> CANCELLED
+PROCESSING -> SKIPPED when parsed content is unchanged and force=false
+```
+
+The API validates tenant scope, deleted files, storage object presence, supported MIME types,
+duplicate active jobs, and deterministic idempotency before queueing work. If an equivalent active
+job exists, the API returns that job. If a completed unchanged job exists and `force=false`, the API
+returns the completed job instead of enqueueing duplicate work. `force=true` creates a
+`REINGEST_FILE` job while still preventing duplicate active work.
+
+The worker reads the stored object through `StorageService`, parses text or Markdown, normalizes
+text, calculates a SHA-256 `contentHash`, and stores a `ParsedDocument`. Full parsed text is stored
+in `ParsedDocument.extractedText` only when it is below `INGESTION_MAX_TEXT_CONTENT_BYTES`;
+otherwise the worker stores `textPreview` plus safe metadata.
+
+Retry behavior is BullMQ-backed and config-driven. Retryable failures include storage reads,
+database errors, queue errors, and temporary parser failures. Unsupported MIME types, missing files,
+deleted files, and empty documents are treated as non-retryable. Cancellation is limited to
+`PENDING` and `QUEUED` jobs; active processing is not interrupted in this version.
 
 ### Example requests
 
@@ -541,9 +601,9 @@ Production should use managed S3-compatible object storage when possible. Local 
 production should be explicit, backed by durable shared storage, and avoided for horizontally scaled
 API or worker deployments.
 
-### Worker retrieval
+### Worker file reads
 
-Future ingestion workers should inject `StorageService` and scope every read by `tenantId`:
+Ingestion workers inject `StorageService` and scope every read by `tenantId`:
 
 ```typescript
 const stream = await this.storageService.getFileStream(storageObjectId, tenantId);
@@ -553,6 +613,17 @@ const buffer = await this.storageService.getFileBuffer(storageObjectId, tenantId
 
 Use streams for parsers that can stream input. Use `getFileBuffer` only for parsers that require the
 entire file in memory.
+
+The worker runs separately from the API:
+
+```bash
+pnpm start:worker:dev
+pnpm start:worker
+```
+
+In Docker, the `worker` service starts `node dist/workers/ingestion.worker.js` in production and
+writes `WORKER_READY_FILE` only after PostgreSQL, Redis, Qdrant, storage, and queue readiness checks
+pass and the BullMQ worker has started.
 
 Attach a tag:
 

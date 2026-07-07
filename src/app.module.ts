@@ -5,6 +5,7 @@ import { ObservabilityModule } from "./common/observability.module.js";
 import { AppConfigModule } from "./config/config.module.js";
 import { FilesModule } from "./modules/files/files.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
+import { IngestionModule } from "./modules/ingestion/ingestion.module.js";
 import { KnowledgeBasesModule } from "./modules/knowledge-bases/knowledge-bases.module.js";
 import { SourcesModule } from "./modules/sources/sources.module.js";
 import { StorageModule } from "./modules/storage/storage.module.js";
@@ -22,6 +23,7 @@ import { TagsModule } from "./modules/tags/tags.module.js";
     StorageObjectsModule,
     FilesModule,
     TagsModule,
+    IngestionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

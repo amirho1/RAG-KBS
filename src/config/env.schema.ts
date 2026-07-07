@@ -92,6 +92,13 @@ export const envSchema = z
     MAX_UPLOAD_SIZE_MB: positiveIntSchema,
     INGESTION_QUEUE_NAME: z.string().min(1, "INGESTION_QUEUE_NAME is required"),
     INGESTION_CONCURRENCY: positiveIntSchema,
+    INGESTION_MAX_ATTEMPTS: positiveIntSchema,
+    INGESTION_BACKOFF_DELAY_MS: positiveIntSchema,
+    INGESTION_REMOVE_ON_COMPLETE_COUNT: positiveIntSchema,
+    INGESTION_REMOVE_ON_FAIL_COUNT: positiveIntSchema,
+    INGESTION_JOB_TIMEOUT_MS: positiveIntSchema,
+    INGESTION_MAX_TEXT_CONTENT_BYTES: positiveIntSchema,
+    INGESTION_TEXT_PREVIEW_LENGTH: positiveIntSchema,
     BULLMQ_QUEUE_PREFIX: z.string().optional().default("rag-kbs"),
     LOG_LEVEL: z
       .enum(["fatal", "error", "warn", "info", "debug", "trace"])

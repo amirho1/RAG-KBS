@@ -1,10 +1,11 @@
 import { INestApplicationContext } from "@nestjs/common";
 import { ConfigType } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
-import { AppModule } from "../app.module.js";
 import { PinoLoggerService } from "../common/logger/pino-logger.service.js";
 import appConfig from "../config/app.config.js";
 import { HealthService } from "../modules/health/health.service.js";
+import { IngestionWorkerRunner } from "./ingestion-worker.runner.js";
+import { WorkerModule } from "./worker.module.js";
 import { writeWorkerReadyFile } from "./worker-ready-file.js";
 
 const readinessRetryDelayMs = 5_000;
@@ -13,7 +14,7 @@ const readinessRetryDelayMs = 5_000;
  * Start the ingestion worker process.
  */
 async function bootstrapIngestionWorker(): Promise<void> {
-  const app = await NestFactory.createApplicationContext(AppModule);
+  const app = await NestFactory.createApplicationContext(WorkerModule);
   const logger = app.get(PinoLoggerService);
   const { workerReadyFile } = app.get<ConfigType<typeof appConfig>>(
     appConfig.KEY
@@ -24,7 +25,9 @@ async function bootstrapIngestionWorker(): Promise<void> {
   app.enableShutdownHooks();
   registerShutdownHandlers(app, keepAliveTimer, logger);
 
-  await waitForWorkerReadiness(app, workerReadyFile, logger);
+  await waitForWorkerDependencies(app, logger);
+  await app.get(IngestionWorkerRunner).start();
+  await writeWorkerReadyFile(workerReadyFile);
   logger.info(
     {
       event: "worker.started",
@@ -39,9 +42,8 @@ async function bootstrapIngestionWorker(): Promise<void> {
  * @param app - The Nest application context.
  * @param workerReadyFile - Path to the worker readiness file.
  */
-async function waitForWorkerReadiness(
+async function waitForWorkerDependencies(
   app: INestApplicationContext,
-  workerReadyFile: string,
   logger: PinoLoggerService
 ): Promise<void> {
   const healthService = app.get(HealthService);
@@ -50,13 +52,11 @@ async function waitForWorkerReadiness(
     const readiness = await healthService.checkReadiness();
 
     if (readiness.status === "ok") {
-      await writeWorkerReadyFile(workerReadyFile);
       logger.info(
         {
           event: "worker.readiness.verified",
-          workerReadyFile,
         },
-        "Worker readiness verified and ready file written."
+        "Worker dependencies are ready."
       );
       return;
     }

@@ -418,7 +418,8 @@ model StorageObject {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  files DocumentFile[]
+  files           DocumentFile[]
+  parsedDocuments ParsedDocument[]
 
   @@unique([tenantId, provider, bucket, objectKey])
   @@index([tenantId, checksumSha256])
@@ -621,19 +622,22 @@ model ParsedDocument {
   knowledgeBaseId String  @db.Uuid
   sourceId        String  @db.Uuid
   fileId          String  @db.Uuid
+  storageObjectId String? @db.Uuid
   parserProfileId String? @db.Uuid
   ingestionJobId  String? @db.Uuid
 
   knowledgeBase KnowledgeBase  @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   source        Source         @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   file          DocumentFile   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  storageObject StorageObject? @relation(fields: [storageObjectId], references: [id], onDelete: SetNull)
   parserProfile ParserProfile? @relation(fields: [parserProfileId], references: [id], onDelete: SetNull)
   ingestionJob  IngestionJob?  @relation(fields: [ingestionJobId], references: [id], onDelete: SetNull)
 
   status ParserStatus @default(PENDING)
 
-  parserName    String @db.VarChar(255)
-  parserVersion String @db.VarChar(64)
+  parserName    String  @db.VarChar(255)
+  parserVersion String  @db.VarChar(64)
+  mimeType      String? @db.VarChar(255)
 
   title    String? @db.VarChar(512)
   language String? @db.VarChar(32)
@@ -652,6 +656,7 @@ model ParsedDocument {
 
   /// Parser output structure: pages, headings, tables, rows, endpoint paths, etc.
   structure Json?
+  metadata  Json?
 
   errorCode    String? @db.VarChar(128)
   errorMessage String? @db.Text
@@ -669,6 +674,7 @@ model ParsedDocument {
   @@index([knowledgeBaseId, status])
   @@index([sourceId])
   @@index([fileId, status])
+  @@index([storageObjectId])
   @@index([ingestionJobId])
   @@index([contentHash])
   @@index([createdAt])
@@ -1077,9 +1083,11 @@ model IngestionJob {
   queueName String  @default("ingestion") @db.VarChar(128)
   bullJobId String? @db.VarChar(191)
 
-  priority     Int @default(0)
-  attemptCount Int @default(0)
-  maxAttempts  Int @default(3)
+  priority     Int     @default(0)
+  attemptCount Int     @default(0)
+  maxAttempts  Int     @default(3)
+  force        Boolean @default(false)
+  reason       String? @db.VarChar(128)
 
   parserProfileId   String? @db.Uuid
   chunkingConfigId  String? @db.Uuid
@@ -1112,15 +1120,16 @@ model IngestionJob {
   finishedAt  DateTime?
   cancelledAt DateTime?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   parsedDocuments  ParsedDocument[]
   attempts         IngestionAttempt[]
   vectorOperations VectorIndexOperation[]
   processingEvents ProcessingEvent[]
 
-  @@unique([idempotencyKey])
+  @@index([idempotencyKey])
   @@index([tenantId, organizationId, projectId])
   @@index([knowledgeBaseId, status])
   @@index([sourceId, status])
@@ -1128,6 +1137,7 @@ model IngestionJob {
   @@index([bullJobId])
   @@index([queueName, status])
   @@index([createdAt])
+  @@index([deletedAt])
   @@map("ingestion_jobs")
 }
 

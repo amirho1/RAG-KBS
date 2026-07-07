@@ -25,7 +25,14 @@ const baseValidEnv = {
   ALLOWED_UPLOAD_MIME_TYPES:
     "application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   INGESTION_QUEUE_NAME: "ingestion",
-  INGESTION_CONCURRENCY: "2",
+  INGESTION_CONCURRENCY: "3",
+  INGESTION_MAX_ATTEMPTS: "3",
+  INGESTION_BACKOFF_DELAY_MS: "5000",
+  INGESTION_REMOVE_ON_COMPLETE_COUNT: "1000",
+  INGESTION_REMOVE_ON_FAIL_COUNT: "5000",
+  INGESTION_JOB_TIMEOUT_MS: "120000",
+  INGESTION_MAX_TEXT_CONTENT_BYTES: "1048576",
+  INGESTION_TEXT_PREVIEW_LENGTH: "1000",
 } as const;
 
 describe("validateEnv", () => {
@@ -41,6 +48,8 @@ describe("validateEnv", () => {
     expect(env.STORAGE_DRIVER).toBe("local");
     expect(env.LOCAL_STORAGE_PATH).toBe("./storage");
     expect(env.ALLOWED_UPLOAD_MIME_TYPES).toContain("application/pdf");
+    expect(env.INGESTION_MAX_ATTEMPTS).toBe(3);
+    expect(env.INGESTION_MAX_TEXT_CONTENT_BYTES).toBe(1048576);
   });
 
   it("should validate an s3 storage environment", () => {
