@@ -16,6 +16,7 @@ import { isPrismaUniqueConstraintError } from "../../../common/metadata/prisma-e
 import { toPrismaNullableJson } from "../../../common/metadata/prisma-json.js";
 import { serializeJsonResponse } from "../../../common/metadata/json-response.js";
 import { buildOrderBy } from "../../../common/metadata/sorting.js";
+import { redactSensitiveValue } from "../../../common/logger/log-redaction.js";
 import { PrismaService } from "../../database/prisma.service.js";
 import {
   activeIngestionJobStatuses,
@@ -764,6 +765,7 @@ export class IngestionJobService {
       force: serializedJob.force,
       reason: serializedJob.reason,
       priority: serializedJob.priority,
+      metadata: redactSensitiveValue(serializedJob.metadata) ?? null,
       errorCode: serializedJob.errorCode,
       errorMessage: serializedJob.errorMessage,
       startedAt: serializedJob.startedAt,

@@ -416,10 +416,7 @@ type TrialServiceDependencies = {
  * @param userId - The user ID.
  * @returns The created invoice.
  */
-export const createTrialInvoice = async (
-  deps: TrialServiceDependencies,
-  userId: string
-) => {
+export const createTrialInvoice = async (deps: TrialServiceDependencies, userId: string) => {
   const plan = await deps.getFreeTrialPlan();
 
   if (!plan) {
@@ -849,9 +846,7 @@ export const createUserSchema = z
       .string(translate("lastnameRequired"))
       .min(NAME_MIN, translate("minLastname"))
       .max(NAME_MAX, translate("maxLastname")),
-    phoneNumber: z
-      .string()
-      .refine(isIranMobilePhone, translate("invalidPhone")),
+    phoneNumber: z.string().refine(isIranMobilePhone, translate("invalidPhone")),
   })
   .refine((data) => data.password === data.passwordConfirm, {
     error: translate("passConfIsDiff"),
@@ -877,6 +872,12 @@ export default class AuthController {
     return this.userService.create(data);
   }
 }
+```
+
+Always use iso date for date validation.
+
+```typescript
+z.iso.date(),
 ```
 
 ## Swagger

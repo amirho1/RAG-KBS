@@ -423,6 +423,9 @@ POST /api/v1/ingestion-jobs/:id/retry?tenantId=tenant_acme
 POST /api/v1/ingestion-jobs/:id/cancel?tenantId=tenant_acme
 ```
 
+Retry and cancellation scope stays in query parameters so callers can retry or cancel a known job
+without sending a JSON body. The query is still validated through dedicated ingestion DTOs.
+
 Create an ingestion job:
 
 ```http
@@ -450,15 +453,21 @@ PROCESSING -> SKIPPED when parsed content is unchanged and force=false
 ```
 
 The API validates tenant scope, deleted files, storage object presence, supported MIME types,
-duplicate active jobs, and deterministic idempotency before queueing work. If an equivalent active
-job exists, the API returns that job. If a completed unchanged job exists and `force=false`, the API
-returns the completed job instead of enqueueing duplicate work. `force=true` creates a
+duplicate active jobs, and deterministic idempotency before queueing work. If any active job exists
+for the same tenant/file, the API returns that job. This is also protected by a partial PostgreSQL
+unique index for active ingestion statuses. If a completed unchanged job exists and `force=false`,
+the API returns the completed job instead of enqueueing duplicate work. `force=true` creates a
 `REINGEST_FILE` job while still preventing duplicate active work.
 
-The worker reads the stored object through `StorageService`, parses text or Markdown, normalizes
-text, calculates a SHA-256 `contentHash`, and stores a `ParsedDocument`. Full parsed text is stored
-in `ParsedDocument.extractedText` only when it is below `INGESTION_MAX_TEXT_CONTENT_BYTES`;
-otherwise the worker stores `textPreview` plus safe metadata.
+Job responses include only safe job metadata. Sensitive metadata keys such as API keys, tokens,
+passwords, raw text, document content, embeddings, and request bodies are redacted before leaving
+the service.
+
+The worker reads the stored object through `StorageService`, verifies that the BullMQ payload still
+matches the database job scope, parses text or Markdown, normalizes text, calculates a SHA-256
+`contentHash`, and stores a `ParsedDocument`. Full parsed text is stored in
+`ParsedDocument.extractedText` only when it is below `INGESTION_MAX_TEXT_CONTENT_BYTES`; otherwise
+the worker stores `textPreview` plus safe metadata.
 
 Retry behavior is BullMQ-backed and config-driven. Retryable failures include storage reads,
 database errors, queue errors, and temporary parser failures. Unsupported MIME types, missing files,

@@ -78,6 +78,13 @@ export class IngestionJobResponseDto {
   @ApiPropertyOptional({ example: "INITIAL_INGESTION" })
   reason?: string | null;
 
+  @ApiPropertyOptional({
+    example: {
+      requestedBy: "api-gateway",
+    },
+  })
+  metadata?: Record<string, unknown> | null;
+
   @ApiPropertyOptional({ example: "UNSUPPORTED_MIME_TYPE" })
   errorCode?: string | null;
 

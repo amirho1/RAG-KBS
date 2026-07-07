@@ -37,8 +37,8 @@ export const listIngestionJobsQuerySchema = tenantFieldsSchema
     knowledgeBaseId: z.uuid().optional(),
     status: z.enum(ingestionJobStatusValues).optional(),
     type: z.enum(ingestionJobTypeValues).optional(),
-    createdAtFrom: z.coerce.date().optional(),
-    createdAtTo: z.coerce.date().optional(),
+    createdAtFrom: z.iso.date().optional(),
+    createdAtTo: z.iso.date().optional(),
   })
   .strict();
 

@@ -78,11 +78,37 @@ export function toIngestionError(error: unknown): IngestionError {
     return error;
   }
 
+  if (isPrismaError(error)) {
+    return new IngestionError({
+      code: "DATABASE_ERROR",
+      message: "The ingestion job could not update database state.",
+      retryable: true,
+    });
+  }
+
   return new IngestionError({
     code: "UNKNOWN_INGESTION_ERROR",
     message: "The ingestion job failed unexpectedly.",
     retryable: true,
   });
+}
+
+/**
+ * Check whether an error looks like a Prisma database error.
+ * @param error - Caught error value.
+ * @returns True when the error came from Prisma.
+ */
+function isPrismaError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const code = (error as Error & { code?: unknown }).code;
+
+  return (
+    error.name.startsWith("Prisma") ||
+    (typeof code === "string" && /^P\d{4}$/.test(code))
+  );
 }
 
 /**

@@ -9,7 +9,7 @@ import type {
   ParseDocumentInput,
   ParsedDocumentOutput,
   ParserSupportInput,
-} from "./parser.interface.js";
+} from "./document-parser.interface.js";
 
 /**
  * Plain text document parser.

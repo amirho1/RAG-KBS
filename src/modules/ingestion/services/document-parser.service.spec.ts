@@ -44,6 +44,18 @@ describe("DocumentParserService", () => {
     expect(result.extractedText).toBe(result.text);
   });
 
+  it("should normalize MIME type case and parameters", async () => {
+    const service = createParserService();
+    const result = await service.parse({
+      buffer: Buffer.from("Title", "utf8"),
+      mimeType: "Text/Plain; charset=utf-8",
+      originalName: "manual.txt",
+    });
+
+    expect(result.parserName).toBe("text");
+    expect(result.mimeType).toBe("text/plain");
+  });
+
   it("should parse Markdown and extract the first heading", async () => {
     const service = createParserService();
     const result = await service.parse({
@@ -75,5 +87,19 @@ describe("DocumentParserService", () => {
     expect(() => service.getParserForMimeType("application/pdf")).toThrow(
       IngestionError
     );
+  });
+
+  it("should reject empty normalized documents", async () => {
+    const service = createParserService();
+
+    await expect(
+      service.parse({
+        buffer: Buffer.from("\u0000\r\n\t", "utf8"),
+        mimeType: "text/plain",
+      })
+    ).rejects.toMatchObject({
+      code: "EMPTY_DOCUMENT",
+      retryable: false,
+    });
   });
 });

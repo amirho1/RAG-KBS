@@ -23,10 +23,12 @@ import {
 } from "@nestjs/swagger";
 import { IdParamDto } from "../../common/dto/id-param.dto.js";
 import { TenantQueryDto } from "../../common/dto/tenant-query.dto.js";
+import { CancelIngestionJobQueryDto } from "./dto/cancel-ingestion-job.dto.js";
 import { CreateIngestionJobDto } from "./dto/create-ingestion-job.dto.js";
 import { IngestFileParamDto } from "./dto/ingest-file-param.dto.js";
 import { ListIngestionJobsQueryDto } from "./dto/ingestion-job-query.dto.js";
 import { IngestionJobResponseDto } from "./dto/ingestion-job-response.dto.js";
+import { RetryIngestionJobQueryDto } from "./dto/retry-ingestion-job.dto.js";
 import { IngestionService } from "./services/ingestion.service.js";
 
 /**
@@ -151,7 +153,7 @@ export class IngestionController {
   @ApiNotFoundResponse({ description: "Ingestion job was not found." })
   retryJob(
     @Param() params: IdParamDto,
-    @Query() query: TenantQueryDto
+    @Query() query: RetryIngestionJobQueryDto
   ): Promise<Record<string, unknown>> {
     return this.ingestionService.retryJob(params.id, query);
   }
@@ -181,7 +183,7 @@ export class IngestionController {
   @ApiNotFoundResponse({ description: "Ingestion job was not found." })
   cancelJob(
     @Param() params: IdParamDto,
-    @Query() query: TenantQueryDto
+    @Query() query: CancelIngestionJobQueryDto
   ): Promise<Record<string, unknown>> {
     return this.ingestionService.cancelJob(params.id, query);
   }

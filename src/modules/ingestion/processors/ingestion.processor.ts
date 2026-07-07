@@ -163,6 +163,7 @@ export class IngestionProcessor {
     attempt: StartedAttemptRecord
   ): Promise<void> {
     ensureFileJobScope(dbJob);
+    ensureBullPayloadMatchesJob(job.data, dbJob);
 
     const file = (await this.ingestionJobService.findIngestibleFile(
       dbJob.fileId,
@@ -387,6 +388,27 @@ function ensureFileJobScope(
     throw createNonRetryableIngestionError(
       "FILE_NOT_FOUND",
       "Only file ingestion jobs are supported by this worker."
+    );
+  }
+}
+
+/**
+ * Ensure BullMQ payload scope still matches the database ingestion job.
+ * @param payload - BullMQ payload.
+ * @param dbJob - Database ingestion job.
+ */
+function ensureBullPayloadMatchesJob(
+  payload: IngestionQueuePayload,
+  dbJob: FileScopedProcessableJob
+): void {
+  if (
+    payload.fileId !== dbJob.fileId ||
+    payload.sourceId !== dbJob.sourceId ||
+    payload.knowledgeBaseId !== dbJob.knowledgeBaseId
+  ) {
+    throw createNonRetryableIngestionError(
+      "UNKNOWN_INGESTION_ERROR",
+      "The ingestion job payload does not match the database job scope."
     );
   }
 }

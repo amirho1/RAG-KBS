@@ -5,6 +5,7 @@ import {
   JobStatus,
   ProcessingState,
 } from "../../../generated/prisma/enums.js";
+import { IngestionError } from "../ingestion.types.js";
 import { IngestionService } from "./ingestion.service.js";
 
 const tenantId = "tenant_acme";
@@ -16,6 +17,15 @@ const ingestionJobId = "4e946c9e-ea1e-48d4-aa8e-7f3e4a29c41d";
 type ServiceHarness = {
   service: IngestionService;
   ingestionJobService: Record<string, AsyncMock>;
+  parserService: {
+    ensureMimeTypeIsSupported: jest.MockedFunction<(mimeType: string) => void>;
+    getParserForMimeType: jest.MockedFunction<
+      (mimeType: string) => {
+        parserName: string;
+        parserVersion: string;
+      }
+    >;
+  };
   queueService: Record<string, AsyncMock>;
 };
 
@@ -57,6 +67,18 @@ function createFileFixture() {
       id: "6f7e4a08-4c14-4ca4-82c0-b3d63dfdc86b",
       deletedAt: null,
     },
+  };
+}
+
+/**
+ * Create a Markdown document file fixture.
+ * @returns Markdown document file fixture.
+ */
+function createMarkdownFileFixture() {
+  return {
+    ...createFileFixture(),
+    originalName: "guide.md",
+    mimeType: "text/markdown",
   };
 }
 
@@ -143,6 +165,7 @@ function createServiceHarness(): ServiceHarness {
   return {
     service,
     ingestionJobService,
+    parserService,
     queueService,
   };
 }
@@ -185,6 +208,101 @@ describe("IngestionService", () => {
     );
   });
 
+  it("should create and queue a Markdown ingestion job", async () => {
+    const file = createMarkdownFileFixture();
+    const pendingJob = createJobFixture(JobStatus.PENDING);
+    const queuedJob = createJobFixture(JobStatus.QUEUED);
+    harness.parserService.getParserForMimeType.mockReturnValue({
+      parserName: "markdown",
+      parserVersion: "1.0.0",
+    });
+    harness.ingestionJobService.findIngestibleFile.mockResolvedValue(file);
+    harness.ingestionJobService.findActiveJobForFile.mockResolvedValue(null);
+    harness.ingestionJobService.findReusableJobByKey.mockResolvedValue(null);
+    harness.ingestionJobService.createPendingJob.mockResolvedValue(pendingJob);
+    harness.queueService.addIngestionJob.mockResolvedValue("bull-1");
+    harness.ingestionJobService.markQueued.mockResolvedValue(queuedJob);
+
+    const result = await harness.service.createFileIngestionJob(fileId, {
+      tenantId,
+      force: false,
+      reason: "INITIAL_INGESTION",
+    });
+
+    expect(result.status).toBe(JobStatus.QUEUED);
+    expect(harness.parserService.getParserForMimeType).toHaveBeenCalledWith(
+      "text/markdown"
+    );
+  });
+
+  it("should reject files outside the tenant scope", async () => {
+    harness.ingestionJobService.findIngestibleFile.mockResolvedValue(null);
+
+    await expect(
+      harness.service.createFileIngestionJob(fileId, {
+        tenantId,
+        force: false,
+        reason: "INITIAL_INGESTION",
+      })
+    ).rejects.toThrow("File was not found.");
+  });
+
+  it("should reject deleted files", async () => {
+    harness.ingestionJobService.findIngestibleFile.mockResolvedValue({
+      ...createFileFixture(),
+      status: FileStatus.DELETED,
+      deletedAt: new Date(),
+    });
+
+    await expect(
+      harness.service.createFileIngestionJob(fileId, {
+        tenantId,
+        force: false,
+        reason: "INITIAL_INGESTION",
+      })
+    ).rejects.toThrow("Deleted files cannot be ingested.");
+  });
+
+  it("should reject files without an active storage object", async () => {
+    harness.ingestionJobService.findIngestibleFile.mockResolvedValue({
+      ...createFileFixture(),
+      storageObject: null,
+    });
+
+    await expect(
+      harness.service.createFileIngestionJob(fileId, {
+        tenantId,
+        force: false,
+        reason: "INITIAL_INGESTION",
+      })
+    ).rejects.toThrow("File storage object was not found.");
+  });
+
+  it("should reject unsupported MIME types as a bad request", async () => {
+    harness.parserService.ensureMimeTypeIsSupported.mockImplementation(() => {
+      throw new IngestionError({
+        code: "UNSUPPORTED_MIME_TYPE",
+        message:
+          "This file type is not supported by the current ingestion pipeline.",
+        retryable: false,
+      });
+    });
+    harness.ingestionJobService.findIngestibleFile.mockResolvedValue({
+      ...createFileFixture(),
+      mimeType: "application/pdf",
+    });
+
+    await expect(
+      harness.service.createFileIngestionJob(fileId, {
+        tenantId,
+        force: false,
+        reason: "INITIAL_INGESTION",
+      })
+    ).rejects.toThrow(
+      "This file type is not supported by the current ingestion pipeline."
+    );
+  });
+
   it("should return an active duplicate without queueing another job", async () => {
     const activeJob = createJobFixture(JobStatus.QUEUED);
     harness.ingestionJobService.findIngestibleFile.mockResolvedValue(
@@ -202,6 +320,91 @@ describe("IngestionService", () => {
 
     expect(result).toBe(activeJob);
     expect(harness.queueService.addIngestionJob).not.toHaveBeenCalled();
+  });
+
+  it("should reuse a completed unchanged job when force is false", async () => {
+    const reusableJob = createJobFixture(JobStatus.COMPLETED);
+    harness.ingestionJobService.findIngestibleFile.mockResolvedValue(
+      createFileFixture()
+    );
+    harness.ingestionJobService.findActiveJobForFile.mockResolvedValue(null);
+    harness.ingestionJobService.findReusableJobByKey.mockResolvedValue(
+      reusableJob
+    );
+
+    const result = await harness.service.createFileIngestionJob(fileId, {
+      tenantId,
+      force: false,
+      reason: "INITIAL_INGESTION",
+    });
+
+    expect(result).toBe(reusableJob);
+    expect(harness.ingestionJobService.createPendingJob).not.toHaveBeenCalled();
+    expect(harness.queueService.addIngestionJob).not.toHaveBeenCalled();
+  });
+
+  it("should create a reingestion job when force is true", async () => {
+    const file = createFileFixture();
+    const pendingJob = {
+      ...createJobFixture(JobStatus.PENDING),
+      type: IngestionJobType.REINGEST_FILE,
+      force: true,
+    };
+    const queuedJob = {
+      ...createJobFixture(JobStatus.QUEUED),
+      type: IngestionJobType.REINGEST_FILE,
+      force: true,
+    };
+    harness.ingestionJobService.findIngestibleFile.mockResolvedValue(file);
+    harness.ingestionJobService.findActiveJobForFile.mockResolvedValue(null);
+    harness.ingestionJobService.createPendingJob.mockResolvedValue(pendingJob);
+    harness.queueService.addIngestionJob.mockResolvedValue("bull-1");
+    harness.ingestionJobService.markQueued.mockResolvedValue(queuedJob);
+
+    const result = await harness.service.createFileIngestionJob(fileId, {
+      tenantId,
+      force: true,
+      reason: "MANUAL",
+    });
+
+    expect(result.status).toBe(JobStatus.QUEUED);
+    expect(
+      harness.ingestionJobService.findReusableJobByKey
+    ).not.toHaveBeenCalled();
+    expect(harness.ingestionJobService.createPendingJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: IngestionJobType.REINGEST_FILE,
+      })
+    );
+    expect(harness.queueService.addIngestionJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        force: true,
+      }),
+      0
+    );
+  });
+
+  it("should mark a job failed when queueing fails", async () => {
+    const file = createFileFixture();
+    const pendingJob = createJobFixture(JobStatus.PENDING);
+    harness.ingestionJobService.findIngestibleFile.mockResolvedValue(file);
+    harness.ingestionJobService.findActiveJobForFile.mockResolvedValue(null);
+    harness.ingestionJobService.findReusableJobByKey.mockResolvedValue(null);
+    harness.ingestionJobService.createPendingJob.mockResolvedValue(pendingJob);
+    harness.queueService.addIngestionJob.mockRejectedValue(
+      new Error("redis://secret")
+    );
+
+    await expect(
+      harness.service.createFileIngestionJob(fileId, {
+        tenantId,
+        force: false,
+        reason: "INITIAL_INGESTION",
+      })
+    ).rejects.toThrow("The ingestion job could not be queued.");
+    expect(harness.ingestionJobService.markQueueFailed).toHaveBeenCalledWith(
+      ingestionJobId
+    );
   });
 
   it("should retry a failed job by removing the old BullMQ job and queueing again", async () => {
@@ -224,6 +427,19 @@ describe("IngestionService", () => {
     expect(harness.queueService.removeJob).toHaveBeenCalledWith("bull-old");
   });
 
+  it("should not retry jobs that are not failed or cancelled", async () => {
+    harness.ingestionJobService.findJobRecord.mockResolvedValue(
+      createJobFixture(JobStatus.QUEUED)
+    );
+
+    await expect(
+      harness.service.retryJob(ingestionJobId, { tenantId })
+    ).rejects.toThrow(
+      "Only failed or cancelled ingestion jobs can be retried."
+    );
+    expect(harness.queueService.removeJob).not.toHaveBeenCalled();
+  });
+
   it("should cancel a queued job", async () => {
     const queuedJob = createJobFixture(JobStatus.QUEUED);
     harness.ingestionJobService.findJobRecord.mockResolvedValue(queuedJob);
@@ -242,5 +458,20 @@ describe("IngestionService", () => {
       queuedJob,
       true
     );
+  });
+
+  it("should validate cancellable status before removing the BullMQ job", async () => {
+    harness.ingestionJobService.findJobRecord.mockResolvedValue(
+      createJobFixture(JobStatus.PROCESSING)
+    );
+
+    await expect(
+      harness.service.cancelJob(ingestionJobId, {
+        tenantId,
+      })
+    ).rejects.toThrow(
+      "Only pending or queued ingestion jobs can be cancelled."
+    );
+    expect(harness.queueService.removeJob).not.toHaveBeenCalled();
   });
 });

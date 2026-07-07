@@ -874,6 +874,12 @@ export default class AuthController {
 }
 ```
 
+Always use iso date for date validation.
+
+```typescript
+z.iso.date(),
+```
+
 ## Swagger
 
 For each API, always use Swagger for documentation with detailed descriptions and examples.

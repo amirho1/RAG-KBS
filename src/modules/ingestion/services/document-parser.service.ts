@@ -7,7 +7,7 @@ import {
   createRetryableIngestionError,
 } from "../ingestion.types.js";
 import { MarkdownParser } from "../parsers/markdown.parser.js";
-import type { DocumentParser } from "../parsers/parser.interface.js";
+import type { DocumentParser } from "../parsers/document-parser.interface.js";
 import { TextParser } from "../parsers/text.parser.js";
 
 export type ParsedDocumentResult = {
@@ -149,7 +149,7 @@ export class DocumentParserService {
  * @returns Normalized MIME type.
  */
 function normalizeMimeType(mimeType: string): string {
-  return mimeType.trim().toLowerCase();
+  return (mimeType.split(";")[0] ?? "").trim().toLowerCase();
 }
 
 /**

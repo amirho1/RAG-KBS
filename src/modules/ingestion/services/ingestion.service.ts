@@ -18,6 +18,7 @@ import {
 } from "../../../generated/prisma/enums.js";
 import {
   activeIngestionJobStatuses,
+  cancellableIngestionJobStatuses,
   retryableIngestionJobStatuses,
 } from "../ingestion.constants.js";
 import type { CreateIngestionJobInput } from "../dto/create-ingestion-job.dto.js";
@@ -26,6 +27,7 @@ import { DocumentParserService } from "./document-parser.service.js";
 import { IngestionIdempotencyService } from "./ingestion-idempotency.service.js";
 import { IngestionJobService } from "./ingestion-job.service.js";
 import { IngestionQueueService } from "./ingestion-queue.service.js";
+import { IngestionError } from "../ingestion.types.js";
 
 type IngestibleFileRecord = {
   id: string;
@@ -244,6 +246,17 @@ export class IngestionService {
       id,
       query.tenantId
     );
+
+    if (
+      !cancellableIngestionJobStatuses.some(
+        (cancellableStatus) => cancellableStatus === job.status
+      )
+    ) {
+      throw new ConflictException(
+        "Only pending or queued ingestion jobs can be cancelled."
+      );
+    }
+
     const bullJobRemoved = await this.queueService.removeJob(
       job.bullJobId ?? job.id
     );
@@ -346,7 +359,18 @@ export class IngestionService {
       throw new BadRequestException("File source was not found.");
     }
 
-    this.parserService.ensureMimeTypeIsSupported(file.mimeType);
+    try {
+      this.parserService.ensureMimeTypeIsSupported(file.mimeType);
+    } catch (error) {
+      if (
+        error instanceof IngestionError &&
+        error.code === "UNSUPPORTED_MIME_TYPE"
+      ) {
+        throw new BadRequestException(error.message);
+      }
+
+      throw error;
+    }
   }
 
   /**
