@@ -29,6 +29,47 @@ export const Prisma = {
       this.meta = args.meta;
     }
   },
+  PrismaClientInitializationError: class PrismaClientInitializationError extends Error {
+    clientVersion: string;
+    errorCode?: string;
+
+    /**
+     * Create an initialization error mock.
+     * @param message - Error message.
+     * @param args - Error constructor args.
+     */
+    constructor(
+      message: string,
+      args?: {
+        clientVersion?: string;
+        errorCode?: string;
+      }
+    ) {
+      super(message);
+      this.name = "PrismaClientInitializationError";
+      this.clientVersion = args?.clientVersion ?? "test";
+      this.errorCode = args?.errorCode;
+    }
+  },
+  PrismaClientValidationError: class PrismaClientValidationError extends Error {
+    clientVersion: string;
+
+    /**
+     * Create a validation error mock.
+     * @param message - Error message.
+     * @param args - Error constructor args.
+     */
+    constructor(
+      message: string,
+      args?: {
+        clientVersion?: string;
+      }
+    ) {
+      super(message);
+      this.name = "PrismaClientValidationError";
+      this.clientVersion = args?.clientVersion ?? "test";
+    }
+  },
 };
 
 /**

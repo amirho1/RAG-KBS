@@ -23,6 +23,9 @@ async function bootstrap() {
     defaultVersion: "1",
   });
 
+  // allow cors
+  app.enableCors();
+
   // Create the Swagger document
   const openApiDoc = SwaggerModule.createDocument(
     app,

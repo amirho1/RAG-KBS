@@ -88,8 +88,8 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       qdrant:
@@ -194,8 +194,8 @@ services:
         source: local-storage
         target: /app/storage
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       qdrant:
@@ -214,6 +214,29 @@ services:
       timeout: 5s
       start_period: 30s
       retries: 3
+    networks:
+      - rag-kbs
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: development
+    command: pnpm db:migrate:deploy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL:-postgresql://rag_kbs:rag_kbs_password@postgres:5432/rag_kbs}
+      WAIT_FOR_HOSTS: postgres:5432
+    volumes:
+      - type: bind
+        source: .
+        target: /app
+      - type: volume
+        source: node-modules
+        target: /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - rag-kbs
 

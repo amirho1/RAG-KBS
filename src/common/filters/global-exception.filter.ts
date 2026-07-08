@@ -20,6 +20,11 @@ import {
   sanitizeLogMessage,
   type SafeErrorSummary,
 } from "../logger/log-redaction.js";
+import { PinoLoggerService } from "../logger/pino-logger.service.js";
+import {
+  getPrismaHttpError,
+  type PrismaHttpError,
+} from "../metadata/prisma-errors.js";
 
 export type ValidationErrorDetail = {
   field: string;
@@ -42,7 +47,10 @@ type ErrorResponseBody = {
  */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  constructor(private readonly requestContextService: RequestContextService) {}
+  constructor(
+    private readonly requestContextService: RequestContextService,
+    private readonly logger: PinoLoggerService
+  ) {}
 
   /**
    * Catch and format an exception.
@@ -53,10 +61,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const httpContext = host.switchToHttp();
     const request = httpContext.getRequest<RequestWithContext>();
     const response = httpContext.getResponse<Response>();
-    const statusCode = getHttpStatusCode(exception);
+    const prismaError = getPrismaHttpError(exception);
+    const statusCode = getHttpStatusCode(exception, prismaError);
     const details = getValidationDetails(exception);
-    const message = getResponseMessage(exception, statusCode, details);
-    const errorCode = getSafeErrorCode(exception);
+    const message = getResponseMessage(
+      exception,
+      statusCode,
+      details,
+      prismaError
+    );
+    const errorCode = getSafeErrorCode(exception, prismaError);
     const requestId =
       request.requestId ??
       this.requestContextService.getRequestId() ??
@@ -67,6 +81,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     const errorSummary = getErrorSummary(exception, statusCode, message);
     setResponseErrorSummary(response, errorSummary);
+    this.logServerError(exception, request, statusCode, requestId, message);
 
     const body: ErrorResponseBody = {
       statusCode,
@@ -81,14 +96,54 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     response.status(statusCode).json(body);
   }
+
+  /**
+   * Log server-side exceptions with request context.
+   * @param exception - Caught exception.
+   * @param request - HTTP request.
+   * @param statusCode - Response status code.
+   * @param requestId - Request ID.
+   * @param message - Safe response message.
+   */
+  private logServerError(
+    exception: unknown,
+    request: Request,
+    statusCode: number,
+    requestId: string,
+    message: string
+  ): void {
+    if (statusCode < 500) {
+      return;
+    }
+
+    this.logger.errorPayload(
+      {
+        event: "http.exception",
+        requestId,
+        method: request.method,
+        path: getRequestPath(request),
+        statusCode,
+        error: sanitizeError(exception, message),
+      },
+      "Unhandled HTTP exception"
+    );
+  }
 }
 
 /**
  * Get an explicit safe error code from an HTTP exception response.
  * @param exception - Caught exception.
+ * @param prismaError - Mapped Prisma error metadata.
  * @returns Safe error code.
  */
-function getSafeErrorCode(exception: unknown): string | undefined {
+function getSafeErrorCode(
+  exception: unknown,
+  prismaError?: PrismaHttpError
+): string | undefined {
+  if (prismaError) {
+    return prismaError.errorCode;
+  }
+
   if (!(exception instanceof HttpException)) {
     return undefined;
   }
@@ -110,9 +165,17 @@ function getSafeErrorCode(exception: unknown): string | undefined {
 /**
  * Get the HTTP status code for an exception.
  * @param exception - Caught exception.
+ * @param prismaError - Mapped Prisma error metadata.
  * @returns HTTP status code.
  */
-function getHttpStatusCode(exception: unknown): number {
+function getHttpStatusCode(
+  exception: unknown,
+  prismaError?: PrismaHttpError
+): number {
+  if (prismaError) {
+    return prismaError.statusCode;
+  }
+
   if (exception instanceof HttpException) {
     return exception.getStatus();
   }
@@ -210,13 +273,19 @@ function buildIssueField(path: PropertyKey[]): string {
  * @param exception - Caught exception.
  * @param statusCode - HTTP status code.
  * @param details - Validation details.
+ * @param prismaError - Mapped Prisma error metadata.
  * @returns Safe response message.
  */
 function getResponseMessage(
   exception: unknown,
   statusCode: number,
-  details: ValidationErrorDetail[]
+  details: ValidationErrorDetail[],
+  prismaError?: PrismaHttpError
 ): string {
+  if (prismaError) {
+    return prismaError.message;
+  }
+
   if (details.length > 0) {
     return "Validation failed";
   }

@@ -6,14 +6,22 @@ import {
   Param,
   Post,
   Query,
+  VersioningType,
 } from "@nestjs/common";
+import { jest } from "@jest/globals";
 import { Test, TestingModule } from "@nestjs/testing";
 import { createZodDto } from "nestjs-zod";
 import request from "supertest";
 import type { App } from "supertest/types.js";
-import { AppModule } from "./../src/app.module.js";
+import { AppController } from "./../src/app.controller.js";
+import { AppService } from "./../src/app.service.js";
 import { configureApiApplication } from "./../src/bootstrap/api-bootstrap.js";
+import { AppConfigModule } from "./../src/config/config.module.js";
 import { idParamSchema } from "./../src/common/dto/id-param.dto.js";
+import { ObservabilityModule } from "./../src/common/observability.module.js";
+import { Prisma } from "./../src/generated/prisma/client.js";
+import { KnowledgeBasesController } from "./../src/modules/knowledge-bases/knowledge-bases.controller.js";
+import { KnowledgeBasesService } from "./../src/modules/knowledge-bases/knowledge-bases.service.js";
 import { z } from "zod";
 
 const validationFixtureBodySchema = z
@@ -59,6 +67,22 @@ type ValidationSuccessResponse = {
   };
 };
 
+type KnowledgeBasesServiceMock = {
+  create: jest.Mock<(body: unknown) => Promise<Record<string, unknown>>>;
+};
+
+/**
+ * Create a Prisma known request error fixture.
+ * @param code - Prisma error code.
+ * @returns Prisma known request error.
+ */
+function createPrismaError(code: string): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError("Prisma failed", {
+    code,
+    clientVersion: "test",
+  });
+}
+
 @Controller("validation-fixture")
 class ValidationFixtureController {
   /**
@@ -95,8 +119,9 @@ describe("AppController (e2e)", () => {
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-      controllers: [ValidationFixtureController],
+      imports: [AppConfigModule, ObservabilityModule],
+      controllers: [AppController, ValidationFixtureController],
+      providers: [AppService],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -197,6 +222,135 @@ describe("AppController (e2e)", () => {
     });
     expect(JSON.stringify(response.body)).not.toContain("stack");
     expect(JSON.stringify(response.body)).not.toContain("password=secret");
+  });
+
+  afterEach(async () => {
+    if (app) {
+      await app.close();
+    }
+  });
+});
+
+describe("KnowledgeBasesController (e2e)", () => {
+  let app: INestApplication<App>;
+  let knowledgeBasesService: KnowledgeBasesServiceMock;
+
+  beforeEach(async () => {
+    knowledgeBasesService = {
+      create: jest.fn(),
+    };
+
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppConfigModule, ObservabilityModule],
+      controllers: [KnowledgeBasesController],
+      providers: [
+        {
+          provide: KnowledgeBasesService,
+          useValue: knowledgeBasesService,
+        },
+      ],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    configureApiApplication(app);
+    app.enableVersioning({
+      type: VersioningType.URI,
+      prefix: "api/v",
+      defaultVersion: "1",
+    });
+    await app.init();
+  });
+
+  it("creates a knowledge base for valid input", async () => {
+    knowledgeBasesService.create.mockResolvedValue({
+      id: "f1f2c580-0d4c-4fb5-9d18-69c6d8324cc4",
+      tenantId: "tenant_acme",
+      name: "amirhossein",
+      slug: "amirhossein",
+      description: "salighedar",
+      metadata: {},
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/api/v1/knowledge-bases")
+      .send({
+        tenantId: "tenant_acme",
+        name: "amirhossein",
+        description: "salighedar",
+        metadata: {},
+      })
+      .expect(201);
+
+    expect(knowledgeBasesService.create).toHaveBeenCalledWith({
+      tenantId: "tenant_acme",
+      name: "amirhossein",
+      description: "salighedar",
+      metadata: {},
+    });
+    expect(response.body).toMatchObject({
+      id: "f1f2c580-0d4c-4fb5-9d18-69c6d8324cc4",
+      tenantId: "tenant_acme",
+      name: "amirhossein",
+      slug: "amirhossein",
+    });
+  });
+
+  it("returns 400 for invalid create input", async () => {
+    const response = await request(app.getHttpServer())
+      .post("/api/v1/knowledge-bases")
+      .send({
+        tenantId: "tenant_acme",
+        description: "missing name",
+      })
+      .expect(400);
+
+    expect(knowledgeBasesService.create).not.toHaveBeenCalled();
+    expect(response.body).toMatchObject({
+      statusCode: 400,
+      error: "Bad Request",
+      message: "Validation failed",
+      path: "/api/v1/knowledge-bases",
+    });
+  });
+
+  it("returns 409 for duplicate Prisma records", async () => {
+    knowledgeBasesService.create.mockRejectedValue(createPrismaError("P2002"));
+
+    const response = await request(app.getHttpServer())
+      .post("/api/v1/knowledge-bases")
+      .send({
+        tenantId: "tenant_acme",
+        name: "amirhossein",
+      })
+      .expect(409);
+
+    expect(response.body).toMatchObject({
+      statusCode: 409,
+      error: "Conflict",
+      errorCode: "DATABASE_UNIQUE_CONSTRAINT",
+      path: "/api/v1/knowledge-bases",
+    });
+  });
+
+  it("returns 503 for missing database schema", async () => {
+    knowledgeBasesService.create.mockRejectedValue(createPrismaError("P2021"));
+
+    const response = await request(app.getHttpServer())
+      .post("/api/v1/knowledge-bases")
+      .send({
+        tenantId: "tenant_acme",
+        name: "amirhossein",
+      })
+      .expect(503);
+
+    expect(response.body).toMatchObject({
+      statusCode: 503,
+      error: "Service Unavailable",
+      message: "Database schema is not ready. Apply migrations and retry.",
+      errorCode: "DATABASE_SCHEMA_NOT_READY",
+      path: "/api/v1/knowledge-bases",
+    });
+    expect(JSON.stringify(response.body)).not.toContain("knowledge_bases");
   });
 
   afterEach(async () => {
