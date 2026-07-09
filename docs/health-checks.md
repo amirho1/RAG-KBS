@@ -40,8 +40,10 @@ are running.
 - The API container **readiness** probe in Compose calls `GET /health/ready`.
 - The worker container health check still uses `WORKER_READY_FILE`, but the file is written only
   after programmatic readiness checks pass inside the worker process.
-- The API and worker containers mount the `logs` Docker volume at `/app/logs` for persistent
-  application, request, and BullMQ job logs.
+- In development Compose, API and worker application logs are written to host `./logs` through the
+  `/app` bind mount.
+- In production Compose, API and worker containers mount the `logs` Docker volume at `/app/logs`
+  for persistent application, request, and BullMQ job logs.
 
 ## Example healthy response
 

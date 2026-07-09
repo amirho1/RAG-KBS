@@ -80,9 +80,6 @@ services:
         source: node-modules
         target: /app/node_modules
       - type: volume
-        source: logs
-        target: /app/logs
-      - type: volume
         source: local-storage
         target: /app/storage
     ports:
@@ -187,9 +184,6 @@ services:
       - type: volume
         source: node-modules
         target: /app/node_modules
-      - type: volume
-        source: logs
-        target: /app/logs
       - type: volume
         source: local-storage
         target: /app/storage

@@ -61,6 +61,10 @@ volume so host dependencies do not overwrite container dependencies. Nest writes
 output to the bind-mounted `dist` directory so its watch compiler can remove and recreate output
 normally during reloads.
 
+Development application logs are written to local `./logs` through the `/app` bind mount. API,
+request, worker, and BullMQ job logs update live in files such as `logs/app-YYYY-MM-DD.log` and
+`logs/error-YYYY-MM-DD.log`.
+
 ## Related docs
 
 - [Configuration](./configuration.md) — environment variables and validation

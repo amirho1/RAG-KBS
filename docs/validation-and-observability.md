@@ -67,8 +67,10 @@ logs/error-2026-07-04.log
 
 General logs are written to `app-YYYY-MM-DD.log`; error and fatal logs are written to
 `error-YYYY-MM-DD.log`. Both API request logs and worker/job logs use the same logger and the same
-redaction rules. Docker Compose mounts the shared `logs` volume at `/app/logs` for both API and
-worker containers, so logs survive container restarts and image rebuilds.
+redaction rules. In development Docker Compose, the project bind mount maps `/app/logs` to local
+`./logs`, so those files update live on the host. In production Compose, API and worker containers
+mount the shared `logs` Docker volume at `/app/logs`, so logs survive container restarts and image
+rebuilds.
 
 ## Job logs
 
