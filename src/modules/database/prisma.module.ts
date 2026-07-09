@@ -1,4 +1,5 @@
 import { Global, Module } from "@nestjs/common";
+import { IndexingDefaultsService } from "./indexing-defaults.service.js";
 import { PrismaService } from "./prisma.service.js";
 
 /**
@@ -6,7 +7,7 @@ import { PrismaService } from "./prisma.service.js";
  */
 @Global()
 @Module({
-  providers: [PrismaService],
-  exports: [PrismaService],
+  providers: [PrismaService, IndexingDefaultsService],
+  exports: [PrismaService, IndexingDefaultsService],
 })
 export class PrismaModule {}

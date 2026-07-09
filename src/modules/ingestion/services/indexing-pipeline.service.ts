@@ -11,6 +11,7 @@ import { PinoLoggerService } from "../../../common/logger/pino-logger.service.js
 import { ChunkingConfigService } from "../../chunking/services/chunking-config.service.js";
 import { ChunkingService } from "../../chunking/services/chunking.service.js";
 import type { ChunkTextResult } from "../../chunking/chunking.types.js";
+import { IndexingDefaultsService } from "../../database/indexing-defaults.service.js";
 import { PrismaService } from "../../database/prisma.service.js";
 import { EmbeddingConfigService } from "../../embeddings/services/embedding-config.service.js";
 import { EmbeddingsService } from "../../embeddings/services/embeddings.service.js";
@@ -105,6 +106,7 @@ type EmbeddingConfigWithModel = Awaited<
 export class IndexingPipelineService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly indexingDefaultsService: IndexingDefaultsService,
     private readonly chunkingConfigService: ChunkingConfigService,
     private readonly chunkingService: ChunkingService,
     private readonly embeddingConfigService: EmbeddingConfigService,
@@ -124,6 +126,8 @@ export class IndexingPipelineService {
     chunkCount: number;
     embeddedCount: number;
   }> {
+    await this.indexingDefaultsService.ensureTenantDefaults(input.tenantId);
+
     const parsedDocument = await this.loadParsedDocument(input);
     const text = getParsedDocumentText(parsedDocument);
 

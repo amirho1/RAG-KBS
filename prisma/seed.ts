@@ -3,11 +3,8 @@ import { config } from "dotenv";
 import { Pool } from "pg";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import {
-  buildDefaultChunkingConfigData,
-  buildDefaultEmbeddingConfigData,
-  buildDefaultEmbeddingModelData,
-  buildDefaultQdrantCollectionData,
   resolveDefaultSeedConfig,
+  upsertDefaultIndexingRecords,
   type DefaultSeedConfig,
 } from "../src/modules/database/seed-defaults.js";
 
@@ -45,102 +42,7 @@ export async function seedDefaultRecords(
   prisma: PrismaClient,
   seedConfig: DefaultSeedConfig
 ): Promise<void> {
-  const chunkingConfigData = buildDefaultChunkingConfigData(
-    seedConfig.tenantId
-  );
-
-  const chunkingConfig = await prisma.chunkingConfig.upsert({
-    where: {
-      tenantId_name: {
-        tenantId: seedConfig.tenantId,
-        name: chunkingConfigData.name,
-      },
-    },
-    create: chunkingConfigData,
-    update: {
-      strategy: chunkingConfigData.strategy,
-      chunkSize: chunkingConfigData.chunkSize,
-      chunkOverlap: chunkingConfigData.chunkOverlap,
-      tokenizer: chunkingConfigData.tokenizer,
-      preserveHeadings: chunkingConfigData.preserveHeadings,
-      preserveParagraphs: chunkingConfigData.preserveParagraphs,
-      preserveTables: chunkingConfigData.preserveTables,
-      config: chunkingConfigData.config,
-      isDefault: true,
-      isActive: true,
-    },
-  });
-
-  const embeddingModelData = buildDefaultEmbeddingModelData(seedConfig);
-
-  const embeddingModel = await prisma.embeddingModel.upsert({
-    where: {
-      provider_modelName_dimension: {
-        provider: embeddingModelData.provider,
-        modelName: embeddingModelData.modelName,
-        dimension: embeddingModelData.dimension,
-      },
-    },
-    create: embeddingModelData,
-    update: {
-      displayName: embeddingModelData.displayName,
-      distanceMetric: embeddingModelData.distanceMetric,
-      tokenizer: embeddingModelData.tokenizer,
-      metadata: embeddingModelData.metadata,
-      isDefault: true,
-      isActive: true,
-    },
-  });
-
-  const embeddingConfigData = buildDefaultEmbeddingConfigData(
-    seedConfig,
-    embeddingModel.id,
-    chunkingConfig.id
-  );
-
-  const embeddingConfig = await prisma.embeddingConfig.upsert({
-    where: {
-      tenantId_name: {
-        tenantId: seedConfig.tenantId,
-        name: embeddingConfigData.name,
-      },
-    },
-    create: embeddingConfigData,
-    update: {
-      embeddingModelId: embeddingConfigData.embeddingModelId,
-      chunkingConfigId: embeddingConfigData.chunkingConfigId,
-      config: embeddingConfigData.config,
-      isDefault: true,
-      isActive: true,
-    },
-  });
-
-  const qdrantCollectionData = buildDefaultQdrantCollectionData(
-    seedConfig,
-    embeddingModel.id,
-    embeddingConfig.id
-  );
-
-  await prisma.qdrantCollection.upsert({
-    where: {
-      tenantId_name: {
-        tenantId: seedConfig.tenantId,
-        name: qdrantCollectionData.name,
-      },
-    },
-    create: qdrantCollectionData,
-    update: {
-      alias: qdrantCollectionData.alias,
-      embeddingModelId: qdrantCollectionData.embeddingModelId,
-      embeddingConfigId: qdrantCollectionData.embeddingConfigId,
-      vectorSize: qdrantCollectionData.vectorSize,
-      distanceMetric: qdrantCollectionData.distanceMetric,
-      status: qdrantCollectionData.status,
-      isDefaultRead: true,
-      isDefaultWrite: true,
-      config: qdrantCollectionData.config,
-    },
-  });
+  await upsertDefaultIndexingRecords(prisma, seedConfig);
 }
 
 /**

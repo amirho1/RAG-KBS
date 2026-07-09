@@ -63,6 +63,10 @@ The seed inserts or updates a default chunking config, embedding model placehold
 config, and Qdrant collection config. It uses `DEFAULT_TENANT_ID` when provided and falls back to
 `default`. It does not create users, roles, permissions, billing, or frontend data.
 
+The indexing worker also auto-provisions the same default indexing records for the tenant being
+processed. Run the seed when you want defaults created up front for `DEFAULT_TENANT_ID`; ingestion
+does not require every request tenant to be pre-seeded.
+
 Open Prisma Studio:
 
 ```bash

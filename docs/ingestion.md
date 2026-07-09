@@ -62,9 +62,10 @@ the service.
 
 The worker reads the stored object through `StorageService`, verifies that the BullMQ payload still
 matches the database job scope, parses text or Markdown, normalizes text, calculates a SHA-256
-`contentHash`, and stores a `ParsedDocument`. Full parsed text is stored in
-`ParsedDocument.extractedText` only when it is below `INGESTION_MAX_TEXT_CONTENT_BYTES`; otherwise
-the worker stores `textPreview` plus safe metadata.
+`contentHash`, and stores a `ParsedDocument`. Before indexing, it idempotently ensures default
+chunking, embedding, and Qdrant metadata exists for the job's `tenantId`. Full parsed text is stored
+in `ParsedDocument.extractedText` only when it is below `INGESTION_MAX_TEXT_CONTENT_BYTES`;
+otherwise the worker stores `textPreview` plus safe metadata.
 
 Retry behavior is BullMQ-backed and config-driven. Retryable failures include storage reads,
 database errors, queue errors, and temporary parser failures. Unsupported MIME types, missing files,

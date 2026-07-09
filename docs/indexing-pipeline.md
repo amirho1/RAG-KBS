@@ -19,7 +19,7 @@ The modules are intentionally focused:
 
 ## Defaults
 
-The idempotent seed creates:
+The idempotent seed and indexing runtime both ensure these tenant-scoped defaults exist:
 
 - `Default Recursive Text Chunking`: `RECURSIVE_TEXT`, size `800`, overlap `120`, tokenizer
   `APPROXIMATE`, headings and paragraphs preserved.
@@ -27,6 +27,10 @@ The idempotent seed creates:
   model.
 - Default Qdrant collection metadata using `QDRANT_COLLECTION_NAME`, vector size, and distance
   metric.
+
+When ingestion indexes a document, the worker auto-provisions the same default bundle for the
+document's `tenantId` before loading chunking, embedding, or Qdrant metadata. This keeps arbitrary
+tenant IDs from depending on a prior `DEFAULT_TENANT_ID` seed run.
 
 ## Qdrant Payloads
 
