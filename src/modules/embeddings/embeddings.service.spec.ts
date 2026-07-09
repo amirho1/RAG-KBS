@@ -8,14 +8,15 @@ import { LangChainOpenAiService } from "./services/langchain-open-ai.service.js"
 
 const embeddingConfig = {
   provider: "openai",
-  model: "text-embedding-3-small",
-  chatModel: "gpt-4o-mini",
+  model: "openai/text-embedding-3-small",
+  chatModel: "deepseek/deepseek-v4-flash",
   dimension: 4,
   distanceMetric: "Cosine",
   batchSize: 2,
   timeoutMs: 30_000,
   maxRetries: 3,
   apiKey: "test-placeholder",
+  baseUrl: "https://openrouter.ai/api/v1",
 } as const;
 
 describe("LangChainOpenAiService", () => {
@@ -24,6 +25,23 @@ describe("LangChainOpenAiService", () => {
 
     expect(service.createEmbeddings()).toBeInstanceOf(OpenAIEmbeddings);
     expect(service.createChatModel()).toBeInstanceOf(ChatOpenAI);
+  });
+
+  it("should configure OpenAI-compatible clients with the base URL", () => {
+    const service = new LangChainOpenAiService(embeddingConfig);
+    const embeddings = service.createEmbeddings() as OpenAIEmbeddings<
+      number[]
+    > & {
+      clientConfig: { baseURL?: string };
+    };
+    const chatModel = service.createChatModel() as ChatOpenAI & {
+      clientConfig: { baseURL?: string };
+    };
+
+    expect(embeddings.clientConfig.baseURL).toBe(
+      "https://openrouter.ai/api/v1"
+    );
+    expect(chatModel.clientConfig.baseURL).toBe("https://openrouter.ai/api/v1");
   });
 });
 

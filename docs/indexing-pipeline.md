@@ -90,14 +90,15 @@ CHUNKING_TEXT_PREVIEW_LENGTH=1000
 CHUNKING_MAX_CHUNKS_PER_DOCUMENT=10000
 
 EMBEDDING_PROVIDER=openai
-EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_MODEL=openai/text-embedding-3-small
 EMBEDDING_DIMENSION=1536
 EMBEDDING_DISTANCE_METRIC=Cosine
 EMBEDDING_BATCH_SIZE=64
 EMBEDDING_TIMEOUT_MS=30000
 EMBEDDING_MAX_RETRIES=3
 OPENAI_API_KEY=
-OPENAI_CHAT_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_CHAT_MODEL=deepseek/deepseek-v4-flash
 
 QDRANT_COLLECTION_NAME=rag_kbs_default
 QDRANT_VECTOR_SIZE=1536
@@ -108,6 +109,11 @@ QDRANT_TIMEOUT_MS=30000
 
 `EMBEDDING_API_KEY` and `QDRANT_COLLECTION` remain backward-compatible aliases. Prefer
 `OPENAI_API_KEY` and `QDRANT_COLLECTION_NAME` for new deployments.
+
+By default, `OPENAI_BASE_URL` points to OpenRouter (`https://openrouter.ai/api/v1`). Use
+OpenRouter-style model slugs such as `openai/text-embedding-3-small` for `EMBEDDING_MODEL` and
+`deepseek/deepseek-v4-flash` for `OPENAI_CHAT_MODEL`. Set
+`OPENAI_BASE_URL=https://api.openai.com/v1` to call OpenAI directly.
 
 ## Not Included
 

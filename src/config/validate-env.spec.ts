@@ -1,5 +1,5 @@
-import { resetValidatedEnv } from "./validated-env.js";
 import { validateEnv } from "./validate-env.js";
+import { resetValidatedEnv } from "./validated-env.js";
 
 const baseValidEnv = {
   NODE_ENV: "development",
@@ -139,6 +139,8 @@ describe("validateEnv", () => {
     expect(env.RETRIEVAL_MAX_TOP_K).toBe(30);
     expect(env.RETRIEVAL_DEFAULT_SCORE_THRESHOLD).toBe(0);
     expect(env.RETRIEVAL_STORE_QUERY_TEXT).toBe(true);
+    expect(env.OPENAI_BASE_URL).toBe("https://openrouter.ai/api/v1");
+    expect(env.OPENAI_CHAT_MODEL).toBe("deepseek/deepseek-v4-flash");
   });
 
   it("should validate retrieval environment variables", () => {

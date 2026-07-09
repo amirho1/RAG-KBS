@@ -25,6 +25,7 @@ export class LangChainOpenAiService {
       batchSize: this.embedding.batchSize,
       timeout: this.embedding.timeoutMs,
       maxRetries: this.embedding.maxRetries,
+      configuration: this.buildClientConfiguration(),
     });
   }
 
@@ -39,6 +40,17 @@ export class LangChainOpenAiService {
       temperature: 0,
       timeout: this.embedding.timeoutMs,
       maxRetries: this.embedding.maxRetries,
+      configuration: this.buildClientConfiguration(),
     });
+  }
+
+  /**
+   * Build LangChain client configuration for OpenAI-compatible APIs.
+   * @returns Client options including the configured base URL.
+   */
+  private buildClientConfiguration(): { baseURL: string } {
+    return {
+      baseURL: this.embedding.baseUrl,
+    };
   }
 }

@@ -113,6 +113,7 @@ function createService(prisma: PrismaMock): IndexingDefaultsService {
       timeoutMs: 30_000,
       maxRetries: 3,
       apiKey: "test-api-key",
+      baseUrl: "https://openrouter.ai/api/v1",
     },
     {
       url: "http://qdrant:6333",

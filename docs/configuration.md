@@ -59,6 +59,8 @@ export class ExampleQueueService {
 | Embedding | `EMBEDDING_MODEL`                                                                   | Model identifier for the provider          |
 | Embedding | `EMBEDDING_DIMENSION`                                                               | Positive integer vector size               |
 | Embedding | `OPENAI_API_KEY`                                                                    | Required when provider is `openai`         |
+| Embedding | `OPENAI_BASE_URL`                                                                   | OpenAI-compatible API base URL (defaults to OpenRouter) |
+| Embedding | `OPENAI_CHAT_MODEL`                                                                 | Chat model identifier for OpenAI-compatible APIs |
 | Chunking  | `CHUNKING_DEFAULT_SIZE`                                                             | Default chunk token target                 |
 | Chunking  | `CHUNKING_DEFAULT_OVERLAP`                                                          | Default chunk overlap                      |
 | Ingestion | `MAX_UPLOAD_SIZE_MB`                                                                | Positive integer upload limit              |

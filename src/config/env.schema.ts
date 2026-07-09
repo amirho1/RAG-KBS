@@ -143,12 +143,18 @@ export const envSchema = z
     EMBEDDING_MAX_RETRIES: z.coerce.number().int().min(0).optional().default(3),
     EMBEDDING_API_KEY: z.string().optional().default(""),
     OPENAI_API_KEY: z.string().optional().default(""),
+    OPENAI_BASE_URL: z
+      .string()
+      .trim()
+      .url("OPENAI_BASE_URL must be a valid URL")
+      .optional()
+      .default("https://openrouter.ai/api/v1"),
     OPENAI_CHAT_MODEL: z
       .string()
       .trim()
       .min(1)
       .optional()
-      .default("gpt-4o-mini"),
+      .default("deepseek/deepseek-v4-flash"),
     RETRIEVAL_DEFAULT_TOP_K: positiveIntSchema.optional().default(8),
     RETRIEVAL_MAX_TOP_K: positiveIntSchema.optional().default(30),
     RETRIEVAL_DEFAULT_SCORE_THRESHOLD: nonNegativeNumberSchema

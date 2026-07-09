@@ -17,5 +17,6 @@ export default registerAs("embedding", () => {
     timeoutMs: env.EMBEDDING_TIMEOUT_MS,
     maxRetries: env.EMBEDDING_MAX_RETRIES,
     apiKey: env.OPENAI_API_KEY || env.EMBEDDING_API_KEY,
+    baseUrl: env.OPENAI_BASE_URL,
   };
 });
